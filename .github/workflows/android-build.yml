@@ -40,10 +40,11 @@ jobs:
       - name: Run unit tests
         run: gradle --no-daemon :app:testDebugUnitTest
       - name: Install, launch and test local inference on Android emulator
-        timeout-minutes: 15
+        timeout-minutes: 35
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
+          emulator-boot-timeout: 1500
           target: google_apis
           arch: x86_64
           profile: pixel_6
