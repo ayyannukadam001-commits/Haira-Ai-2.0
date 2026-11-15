@@ -8,7 +8,7 @@ Kotlin + Jetpack Compose Android app targeting API 26+ and arm64 devices.
 - DataStore settings for memory enablement and assistant style.
 - Android speech-recognition intent and Android TextToSpeech output (offline recognition depends on installed device language packs).
 - GGUF file picker/import, GGUF magic-header check and SHA-256 calculation; known catalog files are checked against pinned SHA-256 values.
-- Android DownloadManager entries for two public GGUF files.
+- A checksum-verified SmolLM2-360M-Instruct Q4_K_M default model is downloaded during the CI build and packaged as an uncompressed APK asset; the app copies it into private app storage and attempts to load it on first launch.\n- Android DownloadManager entry for the optional Qwen3-0.6B GGUF model.
 - A llama.cpp CMake/JNI integration configured for CPU inference with mmap enabled.
 
 ## Important current limitations
