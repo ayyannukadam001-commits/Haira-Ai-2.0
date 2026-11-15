@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.room.Room
 import com.haira.ai.ai.LocalInference
+import com.haira.ai.ai.ModelCatalog
+import com.haira.ai.ai.ModelDownloader
 import com.haira.ai.data.*
 import com.haira.ai.voice.VoiceOutput
 import kotlinx.coroutines.launch
@@ -97,6 +99,7 @@ fun HairaApp(){
     "Builder"->StatusScreen(Modifier.padding(padding),"BUILDER","Project generation is not implemented in this build yet.")
     else->SystemScreen(Modifier.padding(padding),models,memories,memoryEnabled,style,
      onImport={modelPicker.launch(arrayOf("application/octet-stream","application/*"))},
+     onDownload={item->runCatching{ModelDownloader(context).start(item)}.onSuccess{Toast.makeText(context,"Download started. Android Download Manager will show progress.",Toast.LENGTH_LONG).show()}.onFailure{Toast.makeText(context,"Download could not start: "+it.message,Toast.LENGTH_LONG).show()}},
      onLoad={model->val ok=LocalInference.load(model.path);Toast.makeText(context,if(ok)"Model loaded" else "Native llama.cpp engine is not packaged or the model could not load.",Toast.LENGTH_LONG).show()},
      onRemove={m->scope.launch{dao.deleteModel(m)}},
      onMemory={scope.launch{prefs.setMemoryEnabled(it)}},onStyle={scope.launch{prefs.setStyle(it)}},
@@ -141,10 +144,11 @@ private fun StudioScreen(modifier:Modifier,notes:List<NoteEntity>,onSave:(String
 private fun ActionsScreen(modifier:Modifier,onSettings:()->Unit,onShare:()->Unit){Column(modifier.fillMaxSize().padding(20.dp)){Text("ACTIONS",color=Color.White,fontSize=24.sp,fontWeight=FontWeight.Bold);Button(onClick=onSettings,Modifier.fillMaxWidth().padding(top=12.dp)){Text("Open Android Settings")};OutlinedButton(onClick=onShare,Modifier.fillMaxWidth()){Text("Share HAIRA")};Text("Uses Android intents; no security restrictions are bypassed.",color=Muted,fontSize=12.sp)}}
 
 @Composable
-private fun SystemScreen(modifier:Modifier,models:List<ModelEntity>,memories:List<MemoryEntity>,memoryEnabled:Boolean,style:String,onImport:()->Unit,onLoad:(ModelEntity)->Unit,onRemove:(ModelEntity)->Unit,onMemory:(Boolean)->Unit,onStyle:(String)->Unit,onAddMemory:()->Unit,onDeleteMemory:(MemoryEntity)->Unit,onClearMemory:()->Unit){
+private fun SystemScreen(modifier:Modifier,models:List<ModelEntity>,memories:List<MemoryEntity>,memoryEnabled:Boolean,style:String,onImport:()->Unit,onDownload:(com.haira.ai.ai.ModelItem)->Unit,onLoad:(ModelEntity)->Unit,onRemove:(ModelEntity)->Unit,onMemory:(Boolean)->Unit,onStyle:(String)->Unit,onAddMemory:()->Unit,onDeleteMemory:(MemoryEntity)->Unit,onClearMemory:()->Unit){
  Column(modifier.fillMaxSize().padding(16.dp)){
   Text("SYSTEM",color=Color.White,fontSize=24.sp,fontWeight=FontWeight.Bold)
   Card(Modifier.fillMaxWidth().padding(top=10.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("MODEL MANAGER",color=Cyan,fontWeight=FontWeight.Bold);Button(onClick=onImport,Modifier.fillMaxWidth()){Text("Import GGUF file")}
+   ModelCatalog.models.forEach{item->Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(item.name,color=Color.White);Text(item.quant+" • "+(item.sizeBytes/1_000_000)+" MB",color=Muted,fontSize=10.sp)};TextButton(onClick={onDownload(item)}){Text("Download")}}}
    models.forEach{m->Column(Modifier.fillMaxWidth().padding(vertical=6.dp)){Text(m.displayName,color=Color.White);Text((m.sizeBytes/1_000_000).toString()+" MB • SHA-256 "+m.sha256.take(12),color=Muted,fontSize=10.sp);Row{TextButton(onClick={onLoad(m)}){Text("Load")};TextButton(onClick={onRemove(m)}){Text("Remove")}}}}
    Text("Imported files are copied to app-specific external storage. Native inference requires the JNI backend, which is still pending.",color=Warning,fontSize=11.sp)
   }}
