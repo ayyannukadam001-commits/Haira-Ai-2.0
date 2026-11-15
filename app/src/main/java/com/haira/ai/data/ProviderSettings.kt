@@ -1,6 +1,7 @@
 package com.haira.ai.data
 
 import android.content.Context
+import android.net.Uri
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -33,8 +34,15 @@ class ProviderSettings(context: Context) {
 
     fun save(baseUrl: String, model: String, apiKey: String, enabled: Boolean) {
         val normalized = baseUrl.trim().trimEnd('/')
-        require(normalized.startsWith("https://", ignoreCase = true)) {
-            "Use an HTTPS endpoint so the API key is not sent over an unencrypted connection."
+        val parsed = Uri.parse(normalized)
+        require(
+            parsed.scheme.equals("https", ignoreCase = true) &&
+                !parsed.host.isNullOrBlank() &&
+                parsed.userInfo == null &&
+                parsed.query == null &&
+                parsed.fragment == null
+        ) {
+            "Use a valid HTTPS endpoint without embedded credentials, query strings or fragments."
         }
         require(normalized.length <= 500) { "Endpoint URL is too long." }
         require(model.isNotBlank() && model.length <= 160) { "Enter a valid model name." }
