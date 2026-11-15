@@ -39,6 +39,12 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug
       - name: Run unit tests
         run: gradle --no-daemon :app:testDebugUnitTest
+      - name: Upload built debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HAIRA-AI-2.0-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
       - name: Install, launch and test local inference on Android emulator
         timeout-minutes: 35
         uses: reactivecircus/android-emulator-runner@v2
@@ -58,12 +64,10 @@ jobs:
             LOGCAT_PID=$!
             trap 'kill "$LOGCAT_PID" 2>/dev/null || true' EXIT
             gradle --no-daemon connectedDebugAndroidTest
-      - name: Upload APK and emulator diagnostics
+      - name: Upload emulator diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HAIRA-AI-2.0-debug-apk-and-diagnostics
-          path: |
-            app/build/outputs/apk/debug/app-debug.apk
-            emulator-logcat.txt
+          name: HAIRA-AI-2.0-emulator-diagnostics
+          path: emulator-logcat.txt
           if-no-files-found: warn
