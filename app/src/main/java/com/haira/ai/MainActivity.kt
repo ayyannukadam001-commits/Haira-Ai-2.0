@@ -305,6 +305,10 @@ private fun ActionsScreen(
         Divider(Modifier.padding(vertical=14.dp), color=Muted.copy(alpha=0.25f))
         Text("GITHUB KNOWLEDGE REPOSITORIES", color=Cyan, fontWeight=FontWeight.Bold)
         Text("Connect public repositories. HAIRA can reference their descriptions and README text in local chats. Repository code is never executed.", color=Muted, fontSize=11.sp, modifier=Modifier.padding(top=5.dp))
+        Row(horizontalArrangement=Arrangement.spacedBy(6.dp), modifier=Modifier.padding(top=8.dp)) {
+            FilterChip(selected=false, onClick={repoUrl="https://github.com/ayyannukadam001-commits/freellmapi"}, label={Text("freellmapi")})
+            FilterChip(selected=false, onClick={repoUrl="https://github.com/ayyannukadam001-commits/OmniRoute"}, label={Text("OmniRoute")})
+        }
         OutlinedTextField(
             value=repoUrl,
             onValueChange={repoUrl=it},
