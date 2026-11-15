@@ -24,7 +24,7 @@ class ModelImporter(private val context: Context) {
         // create paths outside the app's model directory.
         val safeName = suppliedName
             .substringAfterLast('/')
-            .substringAfterLast('\\\\')
+            .substringAfterLast('\\')
             .filter { it.isLetterOrDigit() || it == '.' || it == '_' || it == '-' }
             .take(120)
             .ifBlank { "model.gguf" }
