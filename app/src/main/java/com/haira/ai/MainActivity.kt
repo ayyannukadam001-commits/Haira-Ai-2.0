@@ -131,7 +131,7 @@ fun HairaApp(){
          dao.addMessage(MessageEntity(conversationId=activeId,role="user",content=text))
          if(engineStatus!="Model ready") error(engineError ?: "The local AI model is not ready yet.")
          val memoryContext=if(memoryEnabled)memories.joinToString("\n"){it.content}.take(3000)else ""
-         val prompt="Assistant style: "+style+"\nUser-approved memory:\n"+memoryContext+"\nUser: "+text+"\nAssistant:"
+         val prompt="<|im_start|>system\nYou are HAIRA, a helpful and honest local personal assistant. Keep replies clear and concise. Assistant style: "+style+".\nUser-approved memory:\n"+memoryContext+"\n<|im_end|>\n<|im_start|>user\n"+text+"\n<|im_end|>\n<|im_start|>assistant\n"
          val answer=withContext(Dispatchers.Default){LocalInference.generate(prompt)}
          if(!answer.isNullOrBlank())dao.addMessage(MessageEntity(conversationId=activeId,role="assistant",content=answer.trim()))
          else error("The model returned an empty response.")
@@ -148,7 +148,21 @@ fun HairaApp(){
     else->SystemScreen(Modifier.padding(padding),models,memories,memoryEnabled,style,engineStatus,backendAvailable,
      onImport={modelPicker.launch(arrayOf("application/octet-stream","application/*"))},
      onDownload={item->runCatching{ModelDownloader(context).start(item)}.onSuccess{Toast.makeText(context,"Download started. Android Download Manager will show progress.",Toast.LENGTH_LONG).show()}.onFailure{Toast.makeText(context,"Download could not start: "+it.message,Toast.LENGTH_LONG).show()}},
-     onLoad={model->scope.launch{val ok=withContext(Dispatchers.Default){LocalInference.load(model.path)};Toast.makeText(context,if(ok)"Model loaded" else "Native llama.cpp engine is not packaged or the model could not load.",Toast.LENGTH_LONG).show()}},
+     onLoad={model->scope.launch{
+      engineError=null
+      engineStatus="Loading AI engine"
+      try {
+       val ok=withContext(Dispatchers.Default){LocalInference.load(model.path)}
+       if(!ok) error("llama.cpp could not load "+model.displayName)
+       engineStatus="Model ready"
+       Toast.makeText(context,"Model loaded successfully",Toast.LENGTH_LONG).show()
+      } catch(e:Exception) {
+       engineError=e.message ?: "Model loading failed"
+       engineStatus="Loading failed"
+       android.util.Log.e("HAIRA-ENGINE","Manual model load failed",e)
+       Toast.makeText(context,engineError,Toast.LENGTH_LONG).show()
+      }
+     }},
      onRemove={m->scope.launch{dao.deleteModel(m)}},
      onMemory={scope.launch{prefs.setMemoryEnabled(it)}},onStyle={scope.launch{prefs.setStyle(it)}},
      onAddMemory={addMemory=true},onDeleteMemory={m->scope.launch{dao.deleteMemory(m)}},onClearMemory={scope.launch{dao.clearMemories()}})
@@ -165,7 +179,7 @@ private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:L
  var draft by remember{mutableStateOf("")}
  Column(modifier.fillMaxSize().imePadding().background(Brush.verticalGradient(listOf(Night,Color(0xFF0A1D32)))).padding(16.dp)){
   Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("HAIRA AI",color=Color.White,fontSize=25.sp,fontWeight=FontWeight.Bold);Text("LOCAL PERSONAL ASSISTANT",color=Muted,fontSize=9.sp,letterSpacing=2.sp)};TextButton(onClick=onNew){Text("+ New",color=Cyan)}}
-  if(chats.isNotEmpty())LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=8.dp)){items(chats,key={it.id}){chat->FilterChip(selected=chat.id==chatId,onClick={onPick(chat.id)},label={Text(chat.title.ifBlank{"Untitled"}.take(24),maxLines=1)})}}
+  if(chats.isNotEmpty())LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=8.dp)){items(chats,key={it.id}){chat->FilterChip(selected=chat.id==chatId,onClick={onPick(chat.id)},label={Text((if(chat.title=="New conversation") "Chat "+(chats.indexOf(chat)+1) else chat.title).ifBlank{"Untitled"}.take(24),maxLines=1)})}}
   Card(Modifier.fillMaxWidth().padding(top=4.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("ENGINE STATUS",color=Cyan,fontSize=10.sp,fontWeight=FontWeight.Bold);Text(engineStatus,color=if(engineStatus=="Model ready")Cyan else Warning,fontSize=12.sp);if(engineError!=null)Text(engineError,color=Warning,fontSize=11.sp)}}
   LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(vertical=10.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
    if(messages.isEmpty())item{Text("Chat history is stored locally. AI replies are only generated when a real local model is loaded.",color=Muted,fontSize=13.sp)}
