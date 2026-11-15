@@ -17,21 +17,27 @@ class RepositorySyncServiceTest {
             "owner" to "repo",
             service.parseGitHubUrl("https://github.com/owner/repo.git")
         )
+        assertEquals(
+            "owner" to "repo",
+            service.parseGitHubUrl("https://github.com/owner/repo/")
+        )
     }
 
     @Test
-    fun rejectsNonGitHubHostsAndUnsafePaths() {
-        assertThrows(IllegalArgumentException::class.java) {
-            service.parseGitHubUrl("https://github.com.evil.example/owner/repo")
-        }
-        assertThrows(IllegalArgumentException::class.java) {
-            service.parseGitHubUrl("http://github.com/owner/repo")
-        }
-        assertThrows(IllegalArgumentException::class.java) {
-            service.parseGitHubUrl("https://github.com/owner/repo/tree/main")
-        }
-        assertThrows(IllegalArgumentException::class.java) {
-            service.parseGitHubUrl("https://github.com/../repo")
+    fun rejectsNonGitHubHostsAndUnsafeUrls() {
+        listOf(
+            "https://github.com.evil.example/owner/repo",
+            "http://github.com/owner/repo",
+            "https://github.com:444/owner/repo",
+            "https://user@github.com/owner/repo",
+            "https://github.com/owner/repo/tree/main",
+            "https://github.com/../repo",
+            "https://github.com/owner/repo?tab=readme",
+            "https://github.com/owner/repo#readme"
+        ).forEach { input ->
+            assertThrows(IllegalArgumentException::class.java) {
+                service.parseGitHubUrl(input)
+            }
         }
     }
 }
