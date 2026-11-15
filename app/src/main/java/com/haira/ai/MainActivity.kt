@@ -66,6 +66,7 @@ fun HairaApp(){
  var chatId by remember{mutableLongStateOf(0L)}
  var engineStatus by remember{mutableStateOf("Initializing")}
  var engineError by remember{mutableStateOf<String?>(null)}
+ var bundledVerified by remember{mutableStateOf(false)}
  var isGenerating by remember{mutableStateOf(false)}
  val backendAvailable = remember { LocalInference.backendAvailable }
  var addMemory by remember{mutableStateOf(false)}
@@ -93,12 +94,14 @@ fun HairaApp(){
     withContext(Dispatchers.Main) { engineStatus=stage }
    }
    dao.saveModel(bundled)
+   bundledVerified=true
    if(!backendAvailable) error("llama.cpp JNI library is unavailable for this device.")
    engineStatus="Loading AI engine"
    val loaded=withContext(Dispatchers.Default){LocalInference.load(bundled.path,2048)}
    if(!loaded) error("SmolLM2 model file was installed and verified, but llama.cpp could not initialize it.")
    engineStatus="Model ready"
   } catch (e: Exception) {
+   bundledVerified=false
    engineError=e.message ?: e.javaClass.simpleName
    engineStatus="Loading failed"
    android.util.Log.e("HAIRA-ENGINE","Automatic model initialization failed",e)
@@ -156,7 +159,7 @@ fun HairaApp(){
     "Studio"->StudioScreen(Modifier.padding(padding),notes,{t,b->scope.launch{dao.saveNote(NoteEntity(title=t,body=b))}},{n->scope.launch{dao.deleteNote(n)}})
     "Actions"->ActionsScreen(Modifier.padding(padding),{context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS))},{val i=Intent(Intent.ACTION_SEND).apply{type="text/plain";putExtra(Intent.EXTRA_TEXT,"HAIRA AI")};context.startActivity(Intent.createChooser(i,"Share"))})
     "Builder"->StatusScreen(Modifier.padding(padding),"BUILDER","Project generation is not implemented in this build yet.")
-    else->SystemScreen(Modifier.padding(padding),models,memories,memoryEnabled,style,engineStatus,backendAvailable,
+    else->SystemScreen(Modifier.padding(padding),models,memories,memoryEnabled,style,engineStatus,backendAvailable,bundledVerified,LocalInference.isLoaded,
      onImport={modelPicker.launch(arrayOf("application/octet-stream","application/*"))},
      onDownload={item->runCatching{ModelDownloader(context).start(item)}.onSuccess{Toast.makeText(context,"Download started. Android Download Manager will show progress.",Toast.LENGTH_LONG).show()}.onFailure{Toast.makeText(context,"Download could not start: "+it.message,Toast.LENGTH_LONG).show()}},
      onLoad={model->scope.launch{
@@ -227,13 +230,13 @@ private fun StudioScreen(modifier:Modifier,notes:List<NoteEntity>,onSave:(String
 private fun ActionsScreen(modifier:Modifier,onSettings:()->Unit,onShare:()->Unit){Column(modifier.fillMaxSize().padding(20.dp)){Text("ACTIONS",color=Color.White,fontSize=24.sp,fontWeight=FontWeight.Bold);Button(onClick=onSettings,Modifier.fillMaxWidth().padding(top=12.dp)){Text("Open Android Settings")};OutlinedButton(onClick=onShare,Modifier.fillMaxWidth()){Text("Share HAIRA")};Text("Uses Android intents; no security restrictions are bypassed.",color=Muted,fontSize=12.sp)}}
 
 @Composable
-private fun SystemScreen(modifier:Modifier,models:List<ModelEntity>,memories:List<MemoryEntity>,memoryEnabled:Boolean,style:String,engineStatus:String,backendAvailable:Boolean,onImport:()->Unit,onDownload:(com.haira.ai.ai.ModelItem)->Unit,onLoad:(ModelEntity)->Unit,onRemove:(ModelEntity)->Unit,onMemory:(Boolean)->Unit,onStyle:(String)->Unit,onAddMemory:()->Unit,onDeleteMemory:(MemoryEntity)->Unit,onClearMemory:()->Unit){
+private fun SystemScreen(modifier:Modifier,models:List<ModelEntity>,memories:List<MemoryEntity>,memoryEnabled:Boolean,style:String,engineStatus:String,backendAvailable:Boolean,bundledVerified:Boolean,nativeLoaded:Boolean,onImport:()->Unit,onDownload:(com.haira.ai.ai.ModelItem)->Unit,onLoad:(ModelEntity)->Unit,onRemove:(ModelEntity)->Unit,onMemory:(Boolean)->Unit,onStyle:(String)->Unit,onAddMemory:()->Unit,onDeleteMemory:(MemoryEntity)->Unit,onClearMemory:()->Unit){
  Column(modifier.fillMaxSize().padding(16.dp)){
   Text("SYSTEM",color=Color.White,fontSize=24.sp,fontWeight=FontWeight.Bold)
-  Card(Modifier.fillMaxWidth().padding(top=10.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("ENGINE DIAGNOSTICS",color=Cyan,fontWeight=FontWeight.Bold);Text("JNI backend: "+if(backendAvailable)"Available" else "Unavailable",color=if(backendAvailable)Cyan else Warning);Text("Model state: "+engineStatus,color=if(engineStatus=="Model ready")Cyan else Warning)}}
+  Card(Modifier.fillMaxWidth().padding(top=10.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("ENGINE DIAGNOSTICS",color=Cyan,fontWeight=FontWeight.Bold);Text("JNI backend: "+if(backendAvailable)"Available" else "Unavailable",color=if(backendAvailable)Cyan else Warning);Text("Model state: "+engineStatus,color=if(engineStatus=="Model ready")Cyan else Warning);Text("Native model loaded: "+if(nativeLoaded)"Yes" else "No",color=if(nativeLoaded)Cyan else Warning);Text("Bundled model SHA-256: "+if(bundledVerified)"Verified" else "Not verified",color=if(bundledVerified)Cyan else Warning)}}
   Card(Modifier.fillMaxWidth().padding(top=10.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("MODEL MANAGER",color=Cyan,fontWeight=FontWeight.Bold);Button(onClick=onImport,Modifier.fillMaxWidth()){Text("Import GGUF file")}
    ModelCatalog.models.forEach{item->Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(item.name,color=Color.White);Text(item.quant+" • "+(item.sizeBytes/1_000_000)+" MB",color=Muted,fontSize=10.sp)};TextButton(onClick={onDownload(item)}){Text("Download")}}}
-   models.forEach{m->Column(Modifier.fillMaxWidth().padding(vertical=6.dp)){Text(m.displayName,color=Color.White);Text((m.sizeBytes/1_000_000).toString()+" MB • SHA-256 "+m.sha256.take(12),color=Muted,fontSize=10.sp);Row{TextButton(onClick={onLoad(m)}){Text("Load")};TextButton(onClick={onRemove(m)}){Text("Remove")}}}}
+   models.forEach{m->Column(Modifier.fillMaxWidth().padding(vertical=6.dp)){Text(m.displayName,color=Color.White);Text((m.sizeBytes/1_000_000).toString()+" MB • SHA-256 "+m.sha256,color=Muted,fontSize=9.sp);Text("Path: "+m.path,color=Muted,fontSize=9.sp,maxLines=2);Row{TextButton(onClick={onLoad(m)}){Text("Load")};TextButton(onClick={onRemove(m)}){Text("Remove")}}}}
    Text("The bundled SmolLM2 model is installed and loaded automatically at startup. Qwen3 remains optional.",color=Muted,fontSize=11.sp)
   }}
   Card(Modifier.fillMaxWidth().padding(top=10.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("USER-CONTROLLED MEMORY",color=Cyan,fontWeight=FontWeight.Bold);Row(verticalAlignment=Alignment.CenterVertically){Text("Enable memory",Modifier.weight(1f),color=Color.White);Switch(memoryEnabled,onMemory)};Row(verticalAlignment=Alignment.CenterVertically){Text("Saved: "+memories.size,color=Muted,modifier=Modifier.weight(1f));TextButton(onClick=onAddMemory,enabled=memoryEnabled){Text("Add")};TextButton(onClick=onClearMemory){Text("Clear")}};memories.forEach{m->Row(verticalAlignment=Alignment.CenterVertically){Text(m.content,Modifier.weight(1f),color=Color.White,fontSize=12.sp);TextButton(onClick={onDeleteMemory(m)}){Text("Delete")}}}}}
