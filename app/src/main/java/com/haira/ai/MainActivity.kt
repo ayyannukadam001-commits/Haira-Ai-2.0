@@ -10,6 +10,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -205,6 +209,21 @@ fun HairaApp(){
 }
 
 @Composable
+private fun HairaCore(modifier:Modifier=Modifier){
+ val transition= rememberInfiniteTransition(label="haira-core")
+ val pulse by transition.animateFloat(initialValue=0.92f,targetValue=1.06f,animationSpec=infiniteRepeatable(animation=tween(1800),repeatMode=RepeatMode.Reverse),label="core-pulse")
+ val rotation by transition.animateFloat(initialValue=0f,targetValue=360f,animationSpec=infiniteRepeatable(animation=tween(9000,easing=LinearEasing),repeatMode=RepeatMode.Restart),label="core-rotation")
+ Canvas(modifier){
+  val center=androidx.compose.ui.geometry.Offset(size.width/2f,size.height/2f)
+  val radius=size.minDimension/2f
+  drawCircle(Cyan.copy(alpha=0.18f),radius*0.46f,center,style=Stroke(1.dp.toPx()))
+  drawCircle(Cyan.copy(alpha=0.30f),radius*0.33f*pulse,center,style=Stroke(1.5.dp.toPx()))
+  rotate(rotation,center){drawCircle(Cyan.copy(alpha=0.62f),radius*0.39f,center,style=Stroke(1.dp.toPx()))}
+  drawCircle(Cyan.copy(alpha=0.82f),radius*0.09f,center)
+ }
+}
+
+@Composable
 private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit,recognizedSpeech:String?,onSpeechConsumed:()->Unit,onRenameClick:()->Unit,onDeleteChat:()->Unit){
  var draft by remember{mutableStateOf("")}
  LaunchedEffect(recognizedSpeech,isGenerating){
@@ -212,7 +231,7 @@ private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:L
   if(!phrase.isNullOrBlank()&&!isGenerating){onSend(phrase);onSpeechConsumed()}
  }
  Column(modifier.fillMaxSize().imePadding().background(Brush.verticalGradient(listOf(Night,Color(0xFF0A1D32)))).padding(16.dp)){
-  Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("HAIRA AI",color=Color.White,fontSize=25.sp,fontWeight=FontWeight.Bold);Text("LOCAL PERSONAL ASSISTANT",color=Muted,fontSize=9.sp,letterSpacing=2.sp)};TextButton(onClick=onNew){Text("+ New",color=Cyan)}}
+  Row(verticalAlignment=Alignment.CenterVertically){HairaCore(Modifier.size(68.dp));Column(Modifier.weight(1f).padding(start=10.dp)){Text("HAIRA AI",color=Color.White,fontSize=23.sp,fontWeight=FontWeight.Bold);Text("HOLOGRAPHIC AI CORE",color=Cyan,fontSize=9.sp,letterSpacing=1.5.sp);Text(engineStatus,color=Muted,fontSize=9.sp)};TextButton(onClick=onNew){Text("+ New",color=Cyan)}}
   if(chatId!=0L) Row(horizontalArrangement=Arrangement.End,modifier=Modifier.fillMaxWidth()){
    TextButton(onClick=onRenameClick){Text("Rename chat",color=Cyan)}
    TextButton(onClick=onDeleteChat){Text("Delete chat",color=Warning)}
