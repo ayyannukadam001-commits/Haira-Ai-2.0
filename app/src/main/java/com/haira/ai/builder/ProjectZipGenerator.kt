@@ -7,12 +7,14 @@ import java.util.zip.ZipOutputStream
 object ProjectZipGenerator {
     private val packagePattern = Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$")
 
-    fun isValidPackageId(value: String): Boolean = packagePattern.matches(value)
+    private val reservedSegments = setOf("class", "interface", "object", "when", "is", "in", "fun", "val", "var", "package", "import", "return", "this", "super", "if", "else", "for", "while", "do", "try", "catch", "finally", "throw", "true", "false", "null")
+
+    fun isValidPackageId(value: String): Boolean = packagePattern.matches(value) && value.split('.').none { it in reservedSegments }
 
     fun write(output: OutputStream, appName: String, packageId: String) {
         require(appName.isNotBlank()) { "Enter an app name." }
         require(isValidPackageId(packageId)) { "Package ID must look like com.example.myapp." }
-        val safeName = appName.trim().take(40)
+        val safeName = appName.trim().filter { it.isLetterOrDigit() || it == ' ' || it == '_' || it == '-' }.take(40).ifBlank { "AndroidProject" }
         val packagePath = packageId.replace('.', '/')
         val escapedName = safeName.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
         val kotlinName = safeName.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$")

@@ -4,6 +4,7 @@ Kotlin + Jetpack Compose Android app targeting API 26+ and arm64 devices.
 
 ## Current functionality
 - Compose navigation for HAIRA, Studio, Actions, Builder and System.
+- Builder exports a Kotlin + Jetpack Compose Android Studio starter project as a ZIP, with app name and validated package ID. It is source export, not in-app APK compilation.
 - Room persistence for conversations, messages, notes, approved memories and imported model records.
 - DataStore settings for memory enablement and assistant style.
 - Android speech-recognition intent and Android TextToSpeech output. Offline recognition depends on installed Android language packs.
@@ -25,7 +26,7 @@ GitHub Actions:
 The emulator test is a runtime smoke test; it does not replace testing on the user's physical Android device.
 
 ## Known limitations
-- Builder project generation is not implemented.
+- Builder currently exports a starter Android Studio source project; full in-app APK compilation, project templates and asset generation are not implemented.
 - Download progress for optional models is handled by Android Download Manager; in-app pause/resume and retry controls are not implemented.
 - Conversation search, rename/delete, response streaming/regeneration/stop, advanced Studio tools and full device diagnostics remain incomplete.
 - The artifact is a debug APK, not a release-signed APK.

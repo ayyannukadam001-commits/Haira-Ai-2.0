@@ -13,6 +13,7 @@ class ProjectZipGeneratorTest {
         assertFalse(ProjectZipGenerator.isValidPackageId("haira"))
         assertFalse(ProjectZipGenerator.isValidPackageId("com..haira"))
         assertFalse(ProjectZipGenerator.isValidPackageId("com.example-name.app"))
+        assertFalse(ProjectZipGenerator.isValidPackageId("com.example.class"))
     }
 
     @Test fun createsAndroidStudioProjectZip() {
