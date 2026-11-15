@@ -34,10 +34,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.room.Room
 import com.haira.ai.ai.LocalInference
+import com.haira.ai.ai.OpenAiCompatibleClient
+import com.haira.ai.ai.RemoteChatMessage
+import com.haira.ai.ai.RemoteProviderConfig
 import com.haira.ai.builder.ProjectZipGenerator
 import com.haira.ai.ai.ModelCatalog
 import com.haira.ai.ai.ModelDownloader
 import com.haira.ai.data.*
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.haira.ai.voice.VoiceOutput
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -86,6 +90,7 @@ fun HairaApp(){
  var exportPackage by remember{mutableStateOf("")}
  var recognizedSpeech by remember{mutableStateOf<String?>(null)}
  var voiceReady by remember{mutableStateOf(false)}
+ var providerConfig by remember{mutableStateOf<RemoteProviderConfig?>(null)}
  val voice= remember(context){VoiceOutput(context){ready->voiceReady=ready}}
  DisposableEffect(db, voice) {
   onDispose {
@@ -94,6 +99,8 @@ fun HairaApp(){
    db.close()
   }
  }
+
+ LaunchedEffect(Unit){ providerConfig=withContext(Dispatchers.IO){SecureProviderStore(context).load()} }
 
  LaunchedEffect(chats){
   if(chatId==0L && chats.isNotEmpty()) chatId=chats.first().id
