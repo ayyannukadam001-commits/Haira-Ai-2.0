@@ -4,6 +4,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao interface HairaDao {
  @Query("SELECT * FROM conversations ORDER BY createdAt DESC") fun conversations():Flow<List<ConversationEntity>>
  @Insert suspend fun addConversation(item:ConversationEntity):Long
+ @Query("UPDATE conversations SET title=:title WHERE id=:id") suspend fun renameConversation(id:Long,title:String)
+ @Query("DELETE FROM messages WHERE conversationId=:id") suspend fun deleteConversationMessages(id:Long)
+ @Query("DELETE FROM conversations WHERE id=:id") suspend fun deleteConversationRow(id:Long)
+ @Transaction suspend fun deleteConversation(id:Long){ deleteConversationMessages(id); deleteConversationRow(id) }
  @Query("SELECT * FROM messages WHERE conversationId=:id ORDER BY createdAt") fun messages(id:Long):Flow<List<MessageEntity>>
  @Insert suspend fun addMessage(item:MessageEntity)
  @Query("SELECT * FROM notes ORDER BY updatedAt DESC") fun notes():Flow<List<NoteEntity>>

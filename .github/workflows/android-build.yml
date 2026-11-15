@@ -5,11 +5,15 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+concurrency:
+  group: haira-android-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
   debug-apk:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -24,12 +28,46 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Download and verify bundled SmolLM2 model
+        run: |
+          mkdir -p app/src/main/assets
+          curl -fL --retry 3 --retry-all-errors \
+            "https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF/resolve/ddde4293f6050e8b81cca2ea2438c2fe444a0d5b/SmolLM2-360M-Instruct-Q4_K_M.gguf" \
+            -o app/src/main/assets/default-model.gguf
+          echo "2fa3f013dcdd7b99f9b237717fa0b12d75bbb89984cc1274be1471a465bac9c2  app/src/main/assets/default-model.gguf" | sha256sum --check
       - name: Build debug APK with llama.cpp
         run: gradle --no-daemon :app:assembleDebug
       - name: Run unit tests
         run: gradle --no-daemon :app:testDebugUnitTest
-      - uses: actions/upload-artifact@v4
+      - name: Upload built debug APK
+        uses: actions/upload-artifact@v4
         with:
           name: HAIRA-AI-2.0-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      - name: Install, launch and test local inference on Android emulator
+        timeout-minutes: 35
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          emulator-boot-timeout: 1500
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          heap-size: 1024M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            adb logcat -c
+            adb logcat > emulator-logcat.txt &
+            LOGCAT_PID=$!
+            trap 'kill "$LOGCAT_PID" 2>/dev/null || true' EXIT
+            gradle --no-daemon connectedDebugAndroidTest
+      - name: Upload emulator diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HAIRA-AI-2.0-emulator-diagnostics
+          path: emulator-logcat.txt
+          if-no-files-found: warn

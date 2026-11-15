@@ -2,23 +2,31 @@
 
 Kotlin + Jetpack Compose Android app targeting API 26+ and arm64 devices.
 
-## Implemented in the current repository
+## Current functionality
 - Compose navigation for HAIRA, Studio, Actions, Builder and System.
+- Builder exports a Kotlin + Jetpack Compose Android Studio starter project as a ZIP, with app name and validated package ID. It is source export, not in-app APK compilation.
 - Room persistence for conversations, messages, notes, approved memories and imported model records.
 - DataStore settings for memory enablement and assistant style.
-- Android speech-recognition intent and Android TextToSpeech output (offline recognition depends on installed device language packs).
-- GGUF file picker/import, GGUF magic-header check and SHA-256 calculation; known catalog files are checked against pinned SHA-256 values.
-- Android DownloadManager entries for two public GGUF files.
-- A llama.cpp CMake/JNI integration configured for CPU inference with mmap enabled.
+- Android speech-recognition intent and Android TextToSpeech output. Offline recognition depends on installed Android language packs.
+- GGUF file picker/import, GGUF header validation and SHA-256 calculation for known catalog models.
+- SmolLM2-360M-Instruct Q4_K_M is bundled as an uncompressed APK asset, copied into app-private storage, checksum-verified, and automatically loaded through the llama.cpp JNI backend on first launch.
+- Qwen3-0.6B Q4_K_M remains an optional manual download.
+- Local chat messages and assistant responses are stored in Room. The app does not fabricate placeholder AI responses when inference is unavailable.
+- Chat UI shows actual initialization, installation, verification, loading, ready and failure states. Conversation selector is horizontally scrollable.
 
-## Important current limitations
-- The native llama.cpp build and real on-device inference have not yet been verified by a successful CI build and device test.
-- Model files are copied into app-specific external storage for the native file-path API. Keep the original GGUF file in user storage if you need to re-import after uninstall.
-- Download progress is provided by Android DownloadManager notifications; in-app progress controls, pause/resume and retry UI are not implemented yet.
-- Conversation search, rename/delete controls, regeneration/streaming/stop, full memory retrieval controls, advanced Studio tools, Builder, full system diagnostics and device installation tests remain incomplete.
-- No feature should be considered production-ready until the GitHub Actions build and real Android runtime tests pass.
+## Verification
+GitHub Actions:
+1. Downloads and verifies the bundled SmolLM2 asset using its pinned SHA-256.
+2. Builds the Android debug APK for arm64-v8a and x86_64.
+3. Runs unit tests.
+4. Starts an Android API 35 x86_64 emulator.
+5. Runs an instrumentation smoke test that waits for the bundled model to load, sends a prompt, and verifies that an assistant response is displayed.
+6. Uploads the debug APK only after all preceding checks pass.
 
-## Build
-GitHub Actions builds a debug APK on pushes and pull requests to main, installs JDK 17, Android NDK 27 and CMake 3.22.1, then uploads HAIRA-AI-2.0-debug-apk if the build succeeds.
+The emulator test is a runtime smoke test; it does not replace testing on the user's physical Android device.
 
-No model is bundled in the APK. Download or import a compatible GGUF model after installing the app. The app does not generate placeholder AI responses when no working native model is loaded.
+## Known limitations
+- Builder currently exports a starter Android Studio source project; full in-app APK compilation, project templates and asset generation are not implemented.
+- Download progress for optional models is handled by Android Download Manager; in-app pause/resume and retry controls are not implemented.
+- Conversation search, rename/delete, response streaming/regeneration/stop, advanced Studio tools and full device diagnostics remain incomplete.
+- The artifact is a debug APK, not a release-signed APK.
