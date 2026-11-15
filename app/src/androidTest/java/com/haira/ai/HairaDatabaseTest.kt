@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.haira.ai.data.ConversationEntity
 import com.haira.ai.data.HairaDatabase
 import com.haira.ai.data.MessageEntity
+import com.haira.ai.data.ConnectedRepositoryEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -59,5 +60,24 @@ class HairaDatabaseTest {
 
         assertEquals("First", dao.messages(first).first().single().content)
         assertEquals("Second", dao.messages(second).first().single().content)
+    }
+
+    @Test
+    fun connectedPublicRepositoryCanBeStoredAndRemoved() = runBlocking {
+        val dao = database.dao()
+        val repository = ConnectedRepositoryEntity(
+            fullName = "octocat/Hello-World",
+            htmlUrl = "https://github.com/octocat/Hello-World",
+            defaultBranch = "main",
+            description = "Example repository",
+            readmeExcerpt = "# Hello World"
+        )
+
+        dao.saveConnectedRepository(repository)
+        assertEquals(repository.fullName, dao.connectedRepositories().first().single().fullName)
+        assertEquals("# Hello World", dao.connectedRepositories().first().single().readmeExcerpt)
+
+        dao.deleteConnectedRepository(repository.fullName)
+        assertTrue(dao.connectedRepositories().first().isEmpty())
     }
 }

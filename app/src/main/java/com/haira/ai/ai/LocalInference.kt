@@ -4,10 +4,15 @@ import java.io.File
 
 object LocalInference {
     private val lock = Any()
+
     @Volatile private var loaded = false
+    @Volatile private var activeModelPath: String? = null
 
     val isLoaded: Boolean
         get() = loaded
+
+    val currentModelPath: String?
+        get() = activeModelPath
 
     val backendAvailable: Boolean
         get() = try {
@@ -19,8 +24,10 @@ object LocalInference {
 
     fun load(path: String, context: Int = 2048): Boolean = synchronized(lock) {
         if (!backendAvailable || !File(path).isFile) return@synchronized false
-        runCatching { nativeLoad(path, context).also { loaded = it } }
-            .getOrDefault(false)
+        val success = runCatching { nativeLoad(path, context) }.getOrDefault(false)
+        loaded = success
+        activeModelPath = if (success) path else null
+        success
     }
 
     fun generate(prompt: String): String? = synchronized(lock) {
@@ -30,6 +37,7 @@ object LocalInference {
     fun unload() = synchronized(lock) {
         if (loaded) runCatching { nativeUnload() }
         loaded = false
+        activeModelPath = null
     }
 
     private external fun nativeLoad(path: String, context: Int): Boolean
