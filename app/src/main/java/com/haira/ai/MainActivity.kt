@@ -12,7 +12,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -82,9 +81,9 @@ fun HairaApp(){
  LaunchedEffect(Unit){
   engineError=null
   try {
-   engineStatus="Installing bundled SmolLM2"
-   val bundled=withContext(Dispatchers.IO){BundledModelInstaller(context).install()}
-   engineStatus="Verifying bundled model"
+   val bundled=BundledModelInstaller(context).install { stage ->
+    withContext(Dispatchers.Main) { engineStatus=stage }
+   }
    dao.saveModel(bundled)
    if(!backendAvailable) error("llama.cpp JNI library is unavailable for this device.")
    engineStatus="Loading AI engine"
