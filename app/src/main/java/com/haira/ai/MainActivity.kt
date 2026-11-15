@@ -136,7 +136,7 @@ fun HairaApp(){
   if(!phrase.isNullOrBlank()) recognizedSpeech=phrase
  }
  val micPermission= rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->
-  if(granted){val i=Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply{putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);putExtra(RecognizerIntent.EXTRA_LANGUAGE,Locale.getDefault());putExtra(RecognizerIntent.EXTRA_PROMPT,"Speak to HAIRA")};runCatching{speechResult.launch(i)}.onFailure{Toast.makeText(context,"Speech service unavailable",Toast.LENGTH_SHORT).show()}}
+  if(granted){val i=Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply{putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);putExtra(RecognizerIntent.EXTRA_LANGUAGE,Locale.getDefault());putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE,true);putExtra(RecognizerIntent.EXTRA_PROMPT,"Speak to HAIRA")};runCatching{speechResult.launch(i)}.onFailure{Toast.makeText(context,"Speech service unavailable",Toast.LENGTH_SHORT).show()}}
   else Toast.makeText(context,"Microphone permission denied",Toast.LENGTH_SHORT).show()
  }
 
@@ -226,17 +226,23 @@ private fun HairaCore(modifier:Modifier=Modifier){
 @Composable
 private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit,recognizedSpeech:String?,onSpeechConsumed:()->Unit,onRenameClick:()->Unit,onDeleteChat:()->Unit){
  var draft by remember{mutableStateOf("")}
+ var chatQuery by remember{mutableStateOf("")}
  LaunchedEffect(recognizedSpeech,isGenerating){
   val phrase=recognizedSpeech
   if(!phrase.isNullOrBlank()&&!isGenerating){onSend(phrase);onSpeechConsumed()}
  }
  Column(modifier.fillMaxSize().imePadding().background(Brush.verticalGradient(listOf(Night,Color(0xFF0A1D32)))).padding(16.dp)){
-  Row(verticalAlignment=Alignment.CenterVertically){HairaCore(Modifier.size(68.dp));Column(Modifier.weight(1f).padding(start=10.dp)){Text("HAIRA AI",color=Color.White,fontSize=23.sp,fontWeight=FontWeight.Bold);Text("HOLOGRAPHIC AI CORE",color=Cyan,fontSize=9.sp,letterSpacing=1.5.sp);Text(engineStatus,color=Muted,fontSize=9.sp)};TextButton(onClick=onNew){Text("+ New",color=Cyan)}}
+  Row(verticalAlignment=Alignment.CenterVertically){HairaCore(Modifier.size(68.dp));Column(Modifier.weight(1f).padding(start=10.dp)){Text("HAIRA AI",color=Color.White,fontSize=23.sp,fontWeight=FontWeight.Bold);Text("HOLOGRAPHIC AI CORE",color=Cyan,fontSize=9.sp,letterSpacing=1.5.sp);Text(engineStatus,color=Muted,fontSize=9.sp)};TextButton(onClick={chatQuery="";onNew()}){Text("+ New",color=Cyan)}}
   if(chatId!=0L) Row(horizontalArrangement=Arrangement.End,modifier=Modifier.fillMaxWidth()){
    TextButton(onClick=onRenameClick){Text("Rename chat",color=Cyan)}
    TextButton(onClick=onDeleteChat){Text("Delete chat",color=Warning)}
   }
-  if(chats.isNotEmpty())LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=8.dp)){items(chats,key={it.id}){chat->FilterChip(selected=chat.id==chatId,onClick={onPick(chat.id)},label={Text((if(chat.title=="New conversation") "Chat "+(chats.indexOf(chat)+1) else chat.title).ifBlank{"Untitled"}.take(24),maxLines=1)})}}
+  if(chats.isNotEmpty()){
+   OutlinedTextField(chatQuery,{chatQuery=it},Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("Search conversations")})
+   val visibleChats=chats.filter{it.title.contains(chatQuery,ignoreCase=true)}
+   if(visibleChats.isEmpty())Text("No matching conversations",color=Muted,fontSize=11.sp)
+   else LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=8.dp)){items(visibleChats,key={it.id}){chat->FilterChip(selected=chat.id==chatId,onClick={onPick(chat.id)},label={Text((if(chat.title=="New conversation") "Chat "+(chats.indexOf(chat)+1) else chat.title).ifBlank{"Untitled"}.take(24),maxLines=1)})}}
+  }
   Card(Modifier.fillMaxWidth().padding(top=4.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("ENGINE STATUS",color=Cyan,fontSize=10.sp,fontWeight=FontWeight.Bold);Text(engineStatus,color=if(engineStatus=="Model ready")Cyan else Warning,fontSize=12.sp);if(engineError!=null)Text(engineError,color=Warning,fontSize=11.sp)}}
   LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(vertical=10.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
    if(messages.isEmpty())item{Text("Chat history is stored locally. AI replies are only generated when a real local model is loaded.",color=Muted,fontSize=13.sp)}
