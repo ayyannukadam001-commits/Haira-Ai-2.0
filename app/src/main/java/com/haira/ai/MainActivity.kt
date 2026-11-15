@@ -65,7 +65,13 @@ fun HairaApp(){
  var addMemory by remember{mutableStateOf(false)}
  var memoryDraft by remember{mutableStateOf("")}
  val voice= remember(context){VoiceOutput(context)}
- DisposableEffect(db,voice){onDispose{LocalInference.unload();voice.close();db.close()}}
+ DisposableEffect(db, voice) {
+  onDispose {
+   LocalInference.unload()
+   voice.close()
+   db.close()
+  }
+ }
 
  LaunchedEffect(Unit){
   val bundled=withContext(Dispatchers.IO){runCatching{BundledModelInstaller(context).install()}.getOrNull()}
