@@ -1,5 +1,6 @@
 package com.haira.ai.ai
 
+import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -15,8 +16,15 @@ class OpenAiCompatibleClient {
         model: String,
         messages: List<Pair<String, String>>
     ): String = withContext(Dispatchers.IO) {
-        require(baseUrl.startsWith("https://", ignoreCase = true)) {
-            "The online provider endpoint must use HTTPS."
+        val parsedBase = Uri.parse(baseUrl.trim())
+        require(
+            parsedBase.scheme.equals("https", ignoreCase = true) &&
+                !parsedBase.host.isNullOrBlank() &&
+                parsedBase.userInfo == null &&
+                parsedBase.query == null &&
+                parsedBase.fragment == null
+        ) {
+            "The online provider endpoint must be a valid HTTPS URL without embedded credentials."
         }
         require(apiKey.isNotBlank()) { "Online provider API key is missing." }
         require(model.isNotBlank()) { "Online provider model is missing." }
@@ -56,6 +64,7 @@ class OpenAiCompatibleClient {
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Accept", "application/json")
             setRequestProperty("User-Agent", "HAIRA-AI-Android")
+            instanceFollowRedirects = false
             setFixedLengthStreamingMode(payload.size)
         }
 
