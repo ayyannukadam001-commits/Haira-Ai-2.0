@@ -231,15 +231,38 @@ fun HairaApp(){
 @Composable
 private fun HairaCore(modifier:Modifier=Modifier){
  val transition= rememberInfiniteTransition(label="haira-core")
- val pulse by transition.animateFloat(initialValue=0.92f,targetValue=1.06f,animationSpec=infiniteRepeatable(animation=tween(1800),repeatMode=RepeatMode.Reverse),label="core-pulse")
- val rotation by transition.animateFloat(initialValue=0f,targetValue=360f,animationSpec=infiniteRepeatable(animation=tween(9000,easing=LinearEasing),repeatMode=RepeatMode.Restart),label="core-rotation")
+ val pulse by transition.animateFloat(initialValue=0.94f,targetValue=1.05f,animationSpec=infiniteRepeatable(animation=tween(2100),repeatMode=RepeatMode.Reverse),label="core-pulse")
+ val rotation by transition.animateFloat(initialValue=0f,targetValue=360f,animationSpec=infiniteRepeatable(animation=tween(14000,easing=LinearEasing),repeatMode=RepeatMode.Restart),label="core-rotation")
+ val counterRotation by transition.animateFloat(initialValue=360f,targetValue=0f,animationSpec=infiniteRepeatable(animation=tween(19000,easing=LinearEasing),repeatMode=RepeatMode.Restart),label="core-counter-rotation")
+ val sweep by transition.animateFloat(initialValue=72f,targetValue=150f,animationSpec=infiniteRepeatable(animation=tween(2600),repeatMode=RepeatMode.Reverse),label="core-sweep")
  Canvas(modifier){
   val center=androidx.compose.ui.geometry.Offset(size.width/2f,size.height/2f)
   val radius=size.minDimension/2f
-  drawCircle(Cyan.copy(alpha=0.18f),radius*0.46f,center,style=Stroke(1.dp.toPx()))
-  drawCircle(Cyan.copy(alpha=0.30f),radius*0.33f*pulse,center,style=Stroke(1.5.dp.toPx()))
-  rotate(rotation,center){drawCircle(Cyan.copy(alpha=0.62f),radius*0.39f,center,style=Stroke(1.dp.toPx()))}
-  drawCircle(Cyan.copy(alpha=0.82f),radius*0.09f,center)
+  val ring=radius*0.88f
+  drawCircle(Cyan.copy(alpha=0.10f),ring,center,style=Stroke(1.dp.toPx()))
+  drawCircle(Cyan.copy(alpha=0.13f),ring*0.78f,center,style=Stroke(1.dp.toPx()))
+  for(i in 0 until 48){
+   val angle=Math.toRadians(i*7.5-90.0)
+   val inner=ring*(if(i%4==0)0.91f else 0.95f)
+   val outer=ring*(if(i%4==0)1.0f else 0.985f)
+   val start=androidx.compose.ui.geometry.Offset(center.x+kotlin.math.cos(angle).toFloat()*inner,center.y+kotlin.math.sin(angle).toFloat()*inner)
+   val end=androidx.compose.ui.geometry.Offset(center.x+kotlin.math.cos(angle).toFloat()*outer,center.y+kotlin.math.sin(angle).toFloat()*outer)
+   drawLine(Cyan.copy(alpha=if(i%4==0)0.65f else 0.20f),start,end,if(i%4==0)1.4.dp.toPx() else 0.7.dp.toPx())
+  }
+  rotate(rotation,center){
+   drawArc(Cyan.copy(alpha=0.78f),-42f,sweep,false,topLeft=androidx.compose.ui.geometry.Offset(center.x-ring*0.84f,center.y-ring*0.84f),size=androidx.compose.ui.geometry.Size(ring*1.68f,ring*1.68f),style=Stroke(2.dp.toPx()))
+   drawArc(Cyan.copy(alpha=0.42f),145f,48f,false,topLeft=androidx.compose.ui.geometry.Offset(center.x-ring*0.68f,center.y-ring*0.68f),size=androidx.compose.ui.geometry.Size(ring*1.36f,ring*1.36f),style=Stroke(1.4.dp.toPx()))
+  }
+  rotate(counterRotation,center){
+   drawArc(Color.White.copy(alpha=0.55f),18f,38f,false,topLeft=androidx.compose.ui.geometry.Offset(center.x-ring*0.56f,center.y-ring*0.56f),size=androidx.compose.ui.geometry.Size(ring*1.12f,ring*1.12f),style=Stroke(1.dp.toPx()))
+   drawArc(Cyan.copy(alpha=0.30f),205f,54f,false,topLeft=androidx.compose.ui.geometry.Offset(center.x-ring*0.56f,center.y-ring*0.56f),size=androidx.compose.ui.geometry.Size(ring*1.12f,ring*1.12f),style=Stroke(1.dp.toPx()))
+  }
+  drawCircle(Cyan.copy(alpha=0.16f),ring*0.40f,center)
+  drawCircle(Cyan.copy(alpha=0.68f),ring*0.30f*pulse,center,style=Stroke(1.3.dp.toPx()))
+  drawCircle(Cyan.copy(alpha=0.90f),ring*0.105f*pulse,center)
+  rotate(rotation*1.7f,center){
+   drawLine(Cyan.copy(alpha=0.42f),androidx.compose.ui.geometry.Offset(center.x,center.y-ring*0.22f),androidx.compose.ui.geometry.Offset(center.x,center.y-ring*0.34f),1.dp.toPx())
+  }
  }
 }
 
