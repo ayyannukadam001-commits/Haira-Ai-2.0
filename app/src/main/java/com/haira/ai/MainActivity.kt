@@ -42,6 +42,7 @@ import com.haira.ai.voice.VoiceOutput
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 import java.util.Locale
 
 private val Night=Color(0xFF050914)
@@ -161,8 +162,13 @@ fun HairaApp(){
          chatId=activeId
          dao.addMessage(MessageEntity(conversationId=activeId,role="user",content=text))
          if(engineStatus!="Model ready") error(engineError ?: "The local AI model is not ready yet.")
-         val memoryContext=if(memoryEnabled)memories.joinToString("\n"){it.content}.take(3000)else ""
-         val prompt="<|im_start|>system\nYou are HAIRA, a helpful and honest local personal assistant. Keep replies clear and concise. Assistant style: "+style+".\nUser-approved memory:\n"+memoryContext+"\n<|im_end|>\n<|im_start|>user\n"+text+"\n<|im_end|>\n<|im_start|>assistant\n"
+         val history=dao.messages(activeId).first().takeLast(6)
+         val historyPrompt=history.joinToString("\n"){message->
+          val role=if(message.role=="assistant")"assistant" else "user"
+          "<|im_start|>"+role+"\n"+message.content.take(700)+"\n<|im_end|>"
+         }.takeLast(3500)
+         val memoryContext=if(memoryEnabled)memories.joinToString("\n"){it.content}.take(1500)else ""
+         val prompt="<|im_start|>system\nYou are HAIRA, a helpful and honest local personal assistant. Keep replies clear and concise. Assistant style: "+style+".\nUser-approved memory:\n"+memoryContext+"\n<|im_end|>\n"+historyPrompt+"\n<|im_start|>assistant\n"
          val answer=withContext(Dispatchers.Default){LocalInference.generate(prompt)}
          if(!answer.isNullOrBlank())dao.addMessage(MessageEntity(conversationId=activeId,role="assistant",content=answer.trim()))
          else error("The model returned an empty response.")
