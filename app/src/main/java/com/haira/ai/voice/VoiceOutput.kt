@@ -4,7 +4,7 @@ import android.content.Context
 import android.speech.tts.TextToSpeech
 import java.util.Locale
 
-class VoiceOutput(context: Context) : TextToSpeech.OnInitListener {
+class VoiceOutput(context: Context, private val onReadyChanged: (Boolean) -> Unit = {}) : TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = TextToSpeech(context.applicationContext, this)
     @Volatile private var ready = false
     @Volatile private var pendingText: String? = null
@@ -14,6 +14,7 @@ class VoiceOutput(context: Context) : TextToSpeech.OnInitListener {
 
     override fun onInit(status: Int) {
         ready = status == TextToSpeech.SUCCESS
+        onReadyChanged(ready)
         if (ready) {
             tts?.language = Locale.getDefault()
             pendingText?.let { text ->
@@ -47,6 +48,7 @@ class VoiceOutput(context: Context) : TextToSpeech.OnInitListener {
     fun close() {
         pendingText = null
         ready = false
+        onReadyChanged(false)
         tts?.stop()
         tts?.shutdown()
         tts = null
