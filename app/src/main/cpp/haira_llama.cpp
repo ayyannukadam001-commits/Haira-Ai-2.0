@@ -23,7 +23,7 @@ Java_com_haira_ai_ai_LocalInference_nativeLoad(JNIEnv * env, jobject, jstring pa
     if (!modelPath) return JNI_FALSE;
     llama_backend_init();
     llama_model_params modelParams = llama_model_default_params();
-    modelParams.use_mmap = true;
+    modelParams.load_mode = LLAMA_LOAD_MODE_MMAP;
     modelParams.n_gpu_layers = 0;
     g_model = llama_model_load_from_file(modelPath, modelParams);
     env->ReleaseStringUTFChars(path, modelPath);
