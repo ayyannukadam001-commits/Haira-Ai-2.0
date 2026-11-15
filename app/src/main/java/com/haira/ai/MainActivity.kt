@@ -83,7 +83,8 @@ fun HairaApp(){
  var exportAppName by remember{mutableStateOf("")}
  var exportPackage by remember{mutableStateOf("")}
  var recognizedSpeech by remember{mutableStateOf<String?>(null)}
- val voice= remember(context){VoiceOutput(context)}
+ var voiceReady by remember{mutableStateOf(false)}
+ val voice= remember(context){VoiceOutput(context){ready->voiceReady=ready}}
  DisposableEffect(db, voice) {
   onDispose {
    LocalInference.unload()
@@ -171,14 +172,14 @@ fun HairaApp(){
         } finally { isGenerating=false }
        }
       }
-     },onMic={micPermission.launch(Manifest.permission.RECORD_AUDIO)},onSpeak={voice.speak(it)})
+     },onMic={micPermission.launch(Manifest.permission.RECORD_AUDIO)},onSpeak={voice.speak(it)},onStopSpeak={voice.stop()})
     "Studio"->StudioScreen(Modifier.padding(padding),notes,{t,b->scope.launch{dao.saveNote(NoteEntity(title=t,body=b))}},{n->scope.launch{dao.deleteNote(n)}})
     "Actions"->ActionsScreen(Modifier.padding(padding),{context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS))},{val i=Intent(Intent.ACTION_SEND).apply{type="text/plain";putExtra(Intent.EXTRA_TEXT,"HAIRA AI")};context.startActivity(Intent.createChooser(i,"Share"))})
     "Builder"->BuilderScreen(Modifier.padding(padding),builderAppName,{builderAppName=it},builderPackage,{builderPackage=it}){name,pkg->
       if(!ProjectZipGenerator.isValidPackageId(pkg)){Toast.makeText(context,"Use a package ID like com.example.myapp",Toast.LENGTH_LONG).show()}
       else{exportAppName=name;exportPackage=pkg;projectExporter.launch(name.trim().ifBlank{"AndroidProject"}.replace(Regex("[^A-Za-z0-9_-]"),"_")+".zip")}
      }
-    else->SystemScreen(Modifier.padding(padding),models,memories,memoryEnabled,style,engineStatus,backendAvailable,bundledVerified,LocalInference.isLoaded,
+    else->SystemScreen(Modifier.padding(padding),models,memories,memoryEnabled,style,engineStatus,backendAvailable,bundledVerified,LocalInference.isLoaded,voiceReady,
      onImport={modelPicker.launch(arrayOf("application/octet-stream","application/*"))},
      onDownload={item->runCatching{ModelDownloader(context).start(item)}.onSuccess{Toast.makeText(context,"Download started. Android Download Manager will show progress.",Toast.LENGTH_LONG).show()}.onFailure{Toast.makeText(context,"Download could not start: "+it.message,Toast.LENGTH_LONG).show()}},
      onLoad={model->scope.launch{
@@ -224,7 +225,7 @@ private fun HairaCore(modifier:Modifier=Modifier){
 }
 
 @Composable
-private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit,recognizedSpeech:String?,onSpeechConsumed:()->Unit,onRenameClick:()->Unit,onDeleteChat:()->Unit){
+private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit,recognizedSpeech:String?,onSpeechConsumed:()->Unit,onRenameClick:()->Unit,onDeleteChat:()->Unit,onStopSpeak:()->Unit){
  var draft by remember{mutableStateOf("")}
  var chatQuery by remember{mutableStateOf("")}
  LaunchedEffect(recognizedSpeech,isGenerating){
@@ -246,7 +247,7 @@ private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:L
   Card(Modifier.fillMaxWidth().padding(top=4.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("ENGINE STATUS",color=Cyan,fontSize=10.sp,fontWeight=FontWeight.Bold);Text(engineStatus,color=if(engineStatus=="Model ready")Cyan else Warning,fontSize=12.sp);if(engineError!=null)Text(engineError,color=Warning,fontSize=11.sp)}}
   LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(vertical=10.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
    if(messages.isEmpty())item{Text("Chat history is stored locally. AI replies are only generated when a real local model is loaded.",color=Muted,fontSize=13.sp)}
-   items(messages,key={it.id}){m->Card(colors=CardDefaults.cardColors(containerColor=if(m.role=="user")Color(0xFF12344A)else Panel)){Column(Modifier.padding(12.dp)){Text(m.role.uppercase(),color=Cyan,fontSize=9.sp,fontWeight=FontWeight.Bold);Text(m.content,modifier=if(m.role=="assistant")Modifier.testTag("assistant-response") else Modifier,color=Color.White);if(m.role=="assistant")TextButton(onClick={onSpeak(m.content)}){Text("Read aloud")}}}}
+   items(messages,key={it.id}){m->Card(colors=CardDefaults.cardColors(containerColor=if(m.role=="user")Color(0xFF12344A)else Panel)){Column(Modifier.padding(12.dp)){Text(m.role.uppercase(),color=Cyan,fontSize=9.sp,fontWeight=FontWeight.Bold);Text(m.content,modifier=if(m.role=="assistant")Modifier.testTag("assistant-response") else Modifier,color=Color.White);if(m.role=="assistant")TextButton(onClick={onSpeak(m.content)}){Text("Read aloud")};TextButton(onClick=onStopSpeak){Text("Stop voice")}}}}
    if(isGenerating)item{Text("HAIRA is thinking…",color=Cyan,fontSize=13.sp)}
   }
   Row(verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onMic){Text("MIC",color=Cyan)};OutlinedTextField(draft,{draft=it},Modifier.weight(1f),placeholder={Text("Message HAIRA")},keyboardOptions=KeyboardOptions(capitalization=KeyboardCapitalization.Sentences),maxLines=4,enabled=!isGenerating);TextButton(enabled=!isGenerating,onClick={val v=draft.trim();if(v.isNotEmpty()){onSend(v);draft=""}}){Text(if(isGenerating)"…" else "SEND",color=Cyan)}}
@@ -270,10 +271,10 @@ private fun StudioScreen(modifier:Modifier,notes:List<NoteEntity>,onSave:(String
 private fun ActionsScreen(modifier:Modifier,onSettings:()->Unit,onShare:()->Unit){Column(modifier.fillMaxSize().padding(20.dp)){Text("ACTIONS",color=Color.White,fontSize=24.sp,fontWeight=FontWeight.Bold);Button(onClick=onSettings,Modifier.fillMaxWidth().padding(top=12.dp)){Text("Open Android Settings")};OutlinedButton(onClick=onShare,Modifier.fillMaxWidth()){Text("Share HAIRA")};Text("Uses Android intents; no security restrictions are bypassed.",color=Muted,fontSize=12.sp)}}
 
 @Composable
-private fun SystemScreen(modifier:Modifier,models:List<ModelEntity>,memories:List<MemoryEntity>,memoryEnabled:Boolean,style:String,engineStatus:String,backendAvailable:Boolean,bundledVerified:Boolean,nativeLoaded:Boolean,onImport:()->Unit,onDownload:(com.haira.ai.ai.ModelItem)->Unit,onLoad:(ModelEntity)->Unit,onRemove:(ModelEntity)->Unit,onMemory:(Boolean)->Unit,onStyle:(String)->Unit,onAddMemory:()->Unit,onDeleteMemory:(MemoryEntity)->Unit,onClearMemory:()->Unit){
+private fun SystemScreen(modifier:Modifier,models:List<ModelEntity>,memories:List<MemoryEntity>,memoryEnabled:Boolean,style:String,engineStatus:String,backendAvailable:Boolean,bundledVerified:Boolean,nativeLoaded:Boolean,voiceReady:Boolean,onImport:()->Unit,onDownload:(com.haira.ai.ai.ModelItem)->Unit,onLoad:(ModelEntity)->Unit,onRemove:(ModelEntity)->Unit,onMemory:(Boolean)->Unit,onStyle:(String)->Unit,onAddMemory:()->Unit,onDeleteMemory:(MemoryEntity)->Unit,onClearMemory:()->Unit){
  Column(modifier.fillMaxSize().padding(16.dp)){
   Text("SYSTEM",color=Color.White,fontSize=24.sp,fontWeight=FontWeight.Bold)
-  Card(Modifier.fillMaxWidth().padding(top=10.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("ENGINE DIAGNOSTICS",color=Cyan,fontWeight=FontWeight.Bold);Text("JNI backend: "+if(backendAvailable)"Available" else "Unavailable",color=if(backendAvailable)Cyan else Warning);Text("Model state: "+engineStatus,color=if(engineStatus=="Model ready")Cyan else Warning);Text("Native model loaded: "+if(nativeLoaded)"Yes" else "No",color=if(nativeLoaded)Cyan else Warning);Text("Bundled model SHA-256: "+if(bundledVerified)"Verified" else "Not verified",color=if(bundledVerified)Cyan else Warning)}}
+  Card(Modifier.fillMaxWidth().padding(top=10.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("ENGINE DIAGNOSTICS",color=Cyan,fontWeight=FontWeight.Bold);Text("JNI backend: "+if(backendAvailable)"Available" else "Unavailable",color=if(backendAvailable)Cyan else Warning);Text("Model state: "+engineStatus,color=if(engineStatus=="Model ready")Cyan else Warning);Text("Native model loaded: "+if(nativeLoaded)"Yes" else "No",color=if(nativeLoaded)Cyan else Warning);Text("Text-to-speech: "+if(voiceReady)"Ready" else "Not ready",color=if(voiceReady)Cyan else Warning);Text("Bundled model SHA-256: "+if(bundledVerified)"Verified" else "Not verified",color=if(bundledVerified)Cyan else Warning)}}
   Card(Modifier.fillMaxWidth().padding(top=10.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("MODEL MANAGER",color=Cyan,fontWeight=FontWeight.Bold);Button(onClick=onImport,Modifier.fillMaxWidth()){Text("Import GGUF file")}
    ModelCatalog.models.forEach{item->Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(item.name,color=Color.White);Text(item.quant+" • "+(item.sizeBytes/1_000_000)+" MB",color=Muted,fontSize=10.sp)};TextButton(onClick={onDownload(item)}){Text("Download")}}}
    models.forEach{m->Column(Modifier.fillMaxWidth().padding(vertical=6.dp)){Text(m.displayName,color=Color.White);Text((m.sizeBytes/1_000_000).toString()+" MB • SHA-256 "+m.sha256,color=Muted,fontSize=9.sp);Text("Path: "+m.path,color=Muted,fontSize=9.sp,maxLines=2);Row{TextButton(onClick={onLoad(m)}){Text("Load")};TextButton(onClick={onRemove(m)}){Text("Remove")}}}}
