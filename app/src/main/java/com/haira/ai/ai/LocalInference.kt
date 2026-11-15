@@ -6,6 +6,9 @@ object LocalInference {
     private val lock = Any()
     @Volatile private var loaded = false
 
+    val isLoaded: Boolean
+        get() = loaded
+
     val backendAvailable: Boolean
         get() = try {
             System.loadLibrary("haira_llama")
