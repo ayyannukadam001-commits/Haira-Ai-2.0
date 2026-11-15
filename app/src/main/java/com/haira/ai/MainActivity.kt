@@ -46,6 +46,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import java.util.Locale
+import java.io.File
 
 private val Night=Color(0xFF050914)
 private val Panel=Color(0xFF101B2B)
@@ -218,7 +219,23 @@ fun HairaApp(){
        Toast.makeText(context,engineError,Toast.LENGTH_LONG).show()
       }
      }},
-     onRemove={m->scope.launch{dao.deleteModel(m)}},
+     onRemove={m->scope.launch{
+      if(m.displayName=="SmolLM2-360M-Instruct"){
+       Toast.makeText(context,"The bundled default model is protected.",Toast.LENGTH_LONG).show()
+      } else {
+       if(LocalInference.currentModelPath==m.path){
+        LocalInference.unload()
+        engineStatus="Model unloaded"
+       }
+       val modelFile=File(m.path)
+       if(modelFile.exists()&&!modelFile.delete()){
+        Toast.makeText(context,"Could not delete model file. Close any process using it and retry.",Toast.LENGTH_LONG).show()
+       } else {
+        dao.deleteModel(m)
+        Toast.makeText(context,"Model removed and storage released.",Toast.LENGTH_SHORT).show()
+       }
+      }
+     }},
      onMemory={scope.launch{prefs.setMemoryEnabled(it)}},onStyle={scope.launch{prefs.setStyle(it)}},
      onAddMemory={addMemory=true},onDeleteMemory={m->scope.launch{dao.deleteMemory(m)}},onClearMemory={scope.launch{dao.clearMemories()}})
   }
