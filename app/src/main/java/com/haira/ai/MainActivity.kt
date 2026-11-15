@@ -65,7 +65,18 @@ fun HairaApp(){
  var addMemory by remember{mutableStateOf(false)}
  var memoryDraft by remember{mutableStateOf("")}
  val voice= remember(context){VoiceOutput(context)}
- DisposableEffect(db,voice){onDispose{voice.close();db.close()}}
+ DisposableEffect(db,voice){onDispose{LocalInference.unload();voice.close();db.close()}}\n
+ LaunchedEffect(Unit){
+  val bundled=withContext(Dispatchers.IO){runCatching{BundledModelInstaller(context).install()}.getOrNull()}
+  if(bundled!=null){
+   dao.saveModel(bundled)
+   val loaded=withContext(Dispatchers.IO){LocalInference.load(bundled.path,1024)}
+   if(!loaded) Toast.makeText(context,"SmolLM2 is installed, but the native AI engine could not load it on this device.",Toast.LENGTH_LONG).show()
+  } else {
+   Toast.makeText(context,"Bundled SmolLM2 could not be installed. Check free storage and reinstall the app.",Toast.LENGTH_LONG).show()
+  }
+ }
+
 
  val modelPicker= rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri:Uri?->if(uri!=null)scope.launch{
   runCatching{context.contentResolver.takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);ModelImporter(context).import(uri)}
