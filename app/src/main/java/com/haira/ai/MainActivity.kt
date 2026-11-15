@@ -70,6 +70,8 @@ fun HairaApp(){
  val backendAvailable = remember { LocalInference.backendAvailable }
  var addMemory by remember{mutableStateOf(false)}
  var memoryDraft by remember{mutableStateOf("")}
+ var renameChatVisible by remember{mutableStateOf(false)}
+ var renameDraft by remember{mutableStateOf("")}
  var recognizedSpeech by remember{mutableStateOf<String?>(null)}
  val voice= remember(context){VoiceOutput(context)}
  DisposableEffect(db, voice) {
@@ -78,6 +80,10 @@ fun HairaApp(){
    voice.close()
    db.close()
   }
+ }
+
+ LaunchedEffect(chats){
+  if(chatId==0L && chats.isNotEmpty()) chatId=chats.first().id
  }
 
  LaunchedEffect(Unit){
@@ -123,6 +129,8 @@ fun HairaApp(){
     "HAIRA"->ChatScreen(Modifier.padding(padding),chats,chatId,dao.messages(chatId).collectAsState(initial=emptyList()).value,
      engineStatus=engineStatus,engineError=engineError,isGenerating=isGenerating,
      onPick={chatId=it},onNew={scope.launch{chatId=dao.addConversation(ConversationEntity(title="Chat "+(chats.size+1)))}},
+     onRenameClick={renameDraft=chats.firstOrNull{it.id==chatId}?.title.orEmpty();renameChatVisible=true},
+     onDeleteChat={scope.launch{dao.deleteConversation(chatId);chatId=0L}},
      recognizedSpeech=recognizedSpeech,onSpeechConsumed={recognizedSpeech=null},
      onSend={text->
       if(!isGenerating){
@@ -172,13 +180,14 @@ fun HairaApp(){
   }
  }
  }
+ if(renameChatVisible)AlertDialog(onDismissRequest={renameChatVisible=false},title={Text("Rename conversation")},text={OutlinedTextField(renameDraft,{renameDraft=it},singleLine=true,label={Text("Conversation name")})},confirmButton={TextButton(onClick={val title=renameDraft.trim();if(title.isNotEmpty())scope.launch{dao.renameConversation(chatId,title)};renameChatVisible=false}){Text("Save")}},dismissButton={TextButton(onClick={renameChatVisible=false}){Text("Cancel")}})
  if(addMemory)AlertDialog(onDismissRequest={addMemory=false},title={Text("Save a memory")},text={OutlinedTextField(memoryDraft,{memoryDraft=it},placeholder={Text("Only save information you approve")})},
   confirmButton={TextButton(onClick={if(memoryDraft.isNotBlank()&&memoryEnabled)scope.launch{dao.addMemory(MemoryEntity(content=memoryDraft.trim()))};memoryDraft="";addMemory=false}){Text("Save")}},
   dismissButton={TextButton(onClick={addMemory=false}){Text("Cancel")}})
 }
 
 @Composable
-private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit,recognizedSpeech:String?,onSpeechConsumed:()->Unit){
+private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit,recognizedSpeech:String?,onSpeechConsumed:()->Unit,onRenameClick:()->Unit,onDeleteChat:()->Unit){
  var draft by remember{mutableStateOf("")}
  LaunchedEffect(recognizedSpeech,isGenerating){
   val phrase=recognizedSpeech
@@ -186,6 +195,10 @@ private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:L
  }
  Column(modifier.fillMaxSize().imePadding().background(Brush.verticalGradient(listOf(Night,Color(0xFF0A1D32)))).padding(16.dp)){
   Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("HAIRA AI",color=Color.White,fontSize=25.sp,fontWeight=FontWeight.Bold);Text("LOCAL PERSONAL ASSISTANT",color=Muted,fontSize=9.sp,letterSpacing=2.sp)};TextButton(onClick=onNew){Text("+ New",color=Cyan)}}
+  if(chatId!=0L) Row(horizontalArrangement=Arrangement.End,modifier=Modifier.fillMaxWidth()){
+   TextButton(onClick=onRenameClick){Text("Rename chat",color=Cyan)}
+   TextButton(onClick=onDeleteChat){Text("Delete chat",color=Warning)}
+  }
   if(chats.isNotEmpty())LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=8.dp)){items(chats,key={it.id}){chat->FilterChip(selected=chat.id==chatId,onClick={onPick(chat.id)},label={Text((if(chat.title=="New conversation") "Chat "+(chats.indexOf(chat)+1) else chat.title).ifBlank{"Untitled"}.take(24),maxLines=1)})}}
   Card(Modifier.fillMaxWidth().padding(top=4.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("ENGINE STATUS",color=Cyan,fontSize=10.sp,fontWeight=FontWeight.Bold);Text(engineStatus,color=if(engineStatus=="Model ready")Cyan else Warning,fontSize=12.sp);if(engineError!=null)Text(engineError,color=Warning,fontSize=11.sp)}}
   LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(vertical=10.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
