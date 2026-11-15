@@ -7,6 +7,7 @@ plugins {
 android {
     namespace = "com.haira.ai"
     compileSdk = 35
+    ndkVersion = "27.0.12077973"
     defaultConfig {
         applicationId = "com.haira.ai"
         minSdk = 26
@@ -14,12 +15,16 @@ android {
         versionCode = 200
         versionName = "2.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        ndk { abiFilters += listOf("arm64-v8a") }
+        externalNativeBuild {
+            cmake { arguments += listOf("-DANDROID_STL=c++_shared") }
+        }
     }
     buildFeatures { compose = true }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+    externalNativeBuild {
+        cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" }
     }
+    compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
 }
 dependencies {
