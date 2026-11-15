@@ -18,6 +18,12 @@ class ModelImporter(private val context:Context){
   val digest=MessageDigest.getInstance("SHA-256")
   target.inputStream().use{input->val b=ByteArray(1024*1024);while(true){val n=input.read(b);if(n<0)break;digest.update(b,0,n)}}
   val hash=digest.digest().joinToString(""){"%02x".format(it)}
+  val expected=when(name){
+   "SmolLM2-360M-Instruct-Q4_K_M.gguf"->"2fa3f013dcdd7b99f9b237717fa0b12d75bbb89984cc1274be1471a465bac9c2"
+   "Qwen3-0.6B.Q4_K_M.gguf"->"7af3fdf842f87b24672f8a7f1dd50404043f0bfb71093ff91c31d2b49df4631d"
+   else->null
+  }
+  require(expected==null || expected.equals(hash,true)){"SHA-256 checksum mismatch; file rejected."}
   ModelEntity(target.absolutePath,name,target.length(),hash)
  }
 }
