@@ -156,7 +156,7 @@ fun HairaApp(){
   }}}){padding->
    when(tab){
     "HAIRA"->ChatScreen(Modifier.padding(padding),chats,chatId,dao.messages(chatId).collectAsState(initial=emptyList()).value,
-     engineStatus=engineStatus,engineError=engineError,isGenerating=isGenerating,
+     engineStatus=providerConfig?.takeIf{it.enabled}?.let{"Online • "+it.model} ?: engineStatus,engineError=engineError,isGenerating=isGenerating,
      onPick={chatId=it},onNew={scope.launch{chatId=dao.addConversation(ConversationEntity(title="Chat "+(chats.size+1)))}},
      onRenameClick={renameDraft=chats.firstOrNull{it.id==chatId}?.title.orEmpty();renameChatVisible=true},
      onDeleteChat={scope.launch{dao.deleteConversation(chatId);chatId=0L}},
