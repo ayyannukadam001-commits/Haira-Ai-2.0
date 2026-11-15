@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.room.Room
 import com.haira.ai.ai.LocalInference
+import com.haira.ai.builder.ProjectZipGenerator
 import com.haira.ai.ai.ModelCatalog
 import com.haira.ai.ai.ModelDownloader
 import com.haira.ai.data.*
@@ -73,6 +74,10 @@ fun HairaApp(){
  var memoryDraft by remember{mutableStateOf("")}
  var renameChatVisible by remember{mutableStateOf(false)}
  var renameDraft by remember{mutableStateOf("")}
+ var builderAppName by remember{mutableStateOf("My First App")}
+ var builderPackage by remember{mutableStateOf("com.example.myfirstapp")}
+ var exportAppName by remember{mutableStateOf("")}
+ var exportPackage by remember{mutableStateOf("")}
  var recognizedSpeech by remember{mutableStateOf<String?>(null)}
  val voice= remember(context){VoiceOutput(context)}
  DisposableEffect(db, voice) {
@@ -115,6 +120,13 @@ fun HairaApp(){
    .onSuccess{dao.saveModel(it);Toast.makeText(context,"GGUF header verified; model imported. Load status is shown separately.",Toast.LENGTH_LONG).show()}
    .onFailure{Toast.makeText(context,it.message?: "Import failed",Toast.LENGTH_LONG).show()}
  }}
+ val projectExporter=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")){uri->
+  if(uri!=null)scope.launch(Dispatchers.IO){
+   runCatching{context.contentResolver.openOutputStream(uri)?.use{ProjectZipGenerator.write(it,exportAppName,exportPackage)}?:error("Unable to create the ZIP file.")}
+    .onSuccess{withContext(Dispatchers.Main){Toast.makeText(context,"Android Studio project ZIP created.",Toast.LENGTH_LONG).show()}}
+    .onFailure{withContext(Dispatchers.Main){Toast.makeText(context,it.message?:"Project export failed.",Toast.LENGTH_LONG).show()}}
+  }
+ }
  val speechResult= rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
   val phrase=result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
   if(!phrase.isNullOrBlank()) recognizedSpeech=phrase
@@ -158,7 +170,10 @@ fun HairaApp(){
      },onMic={micPermission.launch(Manifest.permission.RECORD_AUDIO)},onSpeak={voice.speak(it)})
     "Studio"->StudioScreen(Modifier.padding(padding),notes,{t,b->scope.launch{dao.saveNote(NoteEntity(title=t,body=b))}},{n->scope.launch{dao.deleteNote(n)}})
     "Actions"->ActionsScreen(Modifier.padding(padding),{context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS))},{val i=Intent(Intent.ACTION_SEND).apply{type="text/plain";putExtra(Intent.EXTRA_TEXT,"HAIRA AI")};context.startActivity(Intent.createChooser(i,"Share"))})
-    "Builder"->StatusScreen(Modifier.padding(padding),"BUILDER","Project generation is not implemented in this build yet.")
+    "Builder"->BuilderScreen(Modifier.padding(padding),builderAppName,{builderAppName=it},builderPackage,{builderPackage=it}){name,pkg->
+      if(!ProjectZipGenerator.isValidPackageId(pkg)){Toast.makeText(context,"Use a package ID like com.example.myapp",Toast.LENGTH_LONG).show()}
+      else{exportAppName=name;exportPackage=pkg;projectExporter.launch(name.trim().ifBlank{"AndroidProject"}.replace(Regex("[^A-Za-z0-9_-]"),"_")+".zip")}
+     }
     else->SystemScreen(Modifier.padding(padding),models,memories,memoryEnabled,style,engineStatus,backendAvailable,bundledVerified,LocalInference.isLoaded,
      onImport={modelPicker.launch(arrayOf("application/octet-stream","application/*"))},
      onDownload={item->runCatching{ModelDownloader(context).start(item)}.onSuccess{Toast.makeText(context,"Download started. Android Download Manager will show progress.",Toast.LENGTH_LONG).show()}.onFailure{Toast.makeText(context,"Download could not start: "+it.message,Toast.LENGTH_LONG).show()}},
@@ -245,4 +260,14 @@ private fun SystemScreen(modifier:Modifier,models:List<ModelEntity>,memories:Lis
 }
 
 @Composable
-private fun StatusScreen(modifier:Modifier,title:String,detail:String){Column(modifier.fillMaxSize().padding(22.dp)){Text(title,color=Color.White,fontSize=24.sp,fontWeight=FontWeight.Bold);Text(detail,color=Muted,modifier=Modifier.padding(top=12.dp))}}
+private fun BuilderScreen(modifier:Modifier,appName:String,onAppName:(String)->Unit,packageId:String,onPackageId:(String)->Unit,onExport:(String,String)->Unit){
+ Column(modifier.fillMaxSize().padding(20.dp)){
+  Text("ANDROID PROJECT BUILDER",color=Color.White,fontSize=22.sp,fontWeight=FontWeight.Bold)
+  Text("Generate an Android Studio-ready Kotlin + Compose starter project.",color=Muted,modifier=Modifier.padding(top=8.dp))
+  OutlinedTextField(appName,onAppName,Modifier.fillMaxWidth().padding(top=16.dp),label={Text("App name")},singleLine=true)
+  OutlinedTextField(packageId,onPackageId,Modifier.fillMaxWidth().padding(top=8.dp),label={Text("Package ID")},singleLine=true)
+  Text("Example: com.example.myapp",color=Muted,fontSize=11.sp,modifier=Modifier.padding(top=5.dp))
+  Button(onClick={onExport(appName,packageId)},enabled=appName.isNotBlank()&&ProjectZipGenerator.isValidPackageId(packageId),modifier=Modifier.fillMaxWidth().padding(top=16.dp)){Text("Export Android Studio ZIP")}
+  Text("This exports editable source code. It does not compile an APK inside HAIRA yet.",color=Warning,fontSize=12.sp,modifier=Modifier.padding(top=12.dp))
+ }
+}
