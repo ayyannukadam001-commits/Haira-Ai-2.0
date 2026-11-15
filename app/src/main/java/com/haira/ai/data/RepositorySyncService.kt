@@ -1,6 +1,6 @@
 package com.haira.ai.data
 
-import android.net.Uri
+import java.net.URI
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -56,12 +56,21 @@ class RepositorySyncService {
         }
 
     internal fun parseGitHubUrl(input: String): Pair<String, String> {
-        val uri = runCatching { Uri.parse(input.trim()) }.getOrNull()
+        val uri = runCatching { URI(input.trim()) }.getOrNull()
             ?: error("Enter a valid GitHub repository URL.")
-        require(uri.scheme == "https" && uri.host.equals("github.com", ignoreCase = true)) {
-            "Only https://github.com/owner/repository URLs are supported."
+        require(
+            uri.scheme.equals("https", ignoreCase = true) &&
+                uri.host.equals("github.com", ignoreCase = true) &&
+                uri.userInfo == null &&
+                (uri.port == -1 || uri.port == 443) &&
+                uri.query == null &&
+                uri.fragment == null
+        ) {
+            "Only canonical HTTPS GitHub repository URLs are supported."
         }
-        val segments = uri.pathSegments
+
+        val path = uri.path.removePrefix("/").removeSuffix("/")
+        val segments = path.split("/")
         require(segments.size == 2) {
             "Use a repository URL like https://github.com/owner/repository."
         }
