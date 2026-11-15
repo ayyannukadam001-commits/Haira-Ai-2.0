@@ -33,6 +33,8 @@ import com.haira.ai.ai.ModelDownloader
 import com.haira.ai.data.*
 import com.haira.ai.voice.VoiceOutput
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.Locale
 
 private val Night=Color(0xFF050914)
@@ -90,7 +92,8 @@ fun HairaApp(){
       if(chatId==0L)chatId=dao.addConversation(ConversationEntity(text.take(32)))
       dao.addMessage(MessageEntity(conversationId=chatId,role="user",content=text))
       val memoryContext=if(memoryEnabled)memories.joinToString("\n"){it.content}.take(3000)else ""
-      val answer=LocalInference.generate("Assistant style: "+style+"\nUser-approved memory:\n"+memoryContext+"\nUser: "+text+"\nAssistant:")
+      val prompt="Assistant style: "+style+"\nUser-approved memory:\n"+memoryContext+"\nUser: "+text+"\nAssistant:"
+      val answer=withContext(Dispatchers.Default){LocalInference.generate(prompt)}
       if(!answer.isNullOrBlank())dao.addMessage(MessageEntity(conversationId=chatId,role="assistant",content=answer))
       else Toast.makeText(context,"No working local model is loaded. Your message is saved; no fake response was created.",Toast.LENGTH_LONG).show()
      }},onMic={micPermission.launch(Manifest.permission.RECORD_AUDIO)},onSpeak={voice.speak(it)})
@@ -100,7 +103,7 @@ fun HairaApp(){
     else->SystemScreen(Modifier.padding(padding),models,memories,memoryEnabled,style,
      onImport={modelPicker.launch(arrayOf("application/octet-stream","application/*"))},
      onDownload={item->runCatching{ModelDownloader(context).start(item)}.onSuccess{Toast.makeText(context,"Download started. Android Download Manager will show progress.",Toast.LENGTH_LONG).show()}.onFailure{Toast.makeText(context,"Download could not start: "+it.message,Toast.LENGTH_LONG).show()}},
-     onLoad={model->val ok=LocalInference.load(model.path);Toast.makeText(context,if(ok)"Model loaded" else "Native llama.cpp engine is not packaged or the model could not load.",Toast.LENGTH_LONG).show()},
+     onLoad={model->scope.launch{val ok=withContext(Dispatchers.Default){LocalInference.load(model.path)};Toast.makeText(context,if(ok)"Model loaded" else "Native llama.cpp engine is not packaged or the model could not load.",Toast.LENGTH_LONG).show()}},
      onRemove={m->scope.launch{dao.deleteModel(m)}},
      onMemory={scope.launch{prefs.setMemoryEnabled(it)}},onStyle={scope.launch{prefs.setStyle(it)}},
      onAddMemory={addMemory=true},onDeleteMemory={m->scope.launch{dao.deleteMemory(m)}},onClearMemory={scope.launch{dao.clearMemories()}})
