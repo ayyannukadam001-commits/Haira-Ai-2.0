@@ -32,8 +32,8 @@ class HairaRuntimeSmokeTest {
 
         composeRule.waitUntil(timeoutMillis = 240_000) {
             composeRule.onAllNodesWithTag("assistant-response").fetchSemanticsNodes().any { node ->
-                node.config.getOrNull(SemanticsProperties.Text)
-                    ?.any { text -> text.text.isNotBlank() } == true
+                node.config[SemanticsProperties.Text]
+                    .any { text -> text.text.isNotBlank() }
             }
         }
 
