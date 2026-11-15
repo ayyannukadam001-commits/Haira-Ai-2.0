@@ -12,7 +12,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -62,6 +64,10 @@ fun HairaApp(){
  val style by prefs.style.collectAsState(initial="Friendly")
  var tab by remember{mutableStateOf("HAIRA")}
  var chatId by remember{mutableLongStateOf(0L)}
+ var engineStatus by remember{mutableStateOf("Initializing")}
+ var engineError by remember{mutableStateOf<String?>(null)}
+ var isGenerating by remember{mutableStateOf(false)}
+ val backendAvailable = remember { LocalInference.backendAvailable }
  var addMemory by remember{mutableStateOf(false)}
  var memoryDraft by remember{mutableStateOf("")}
  val voice= remember(context){VoiceOutput(context)}
@@ -74,13 +80,22 @@ fun HairaApp(){
  }
 
  LaunchedEffect(Unit){
-  val bundled=withContext(Dispatchers.IO){runCatching{BundledModelInstaller(context).install()}.getOrNull()}
-  if(bundled!=null){
+  engineError=null
+  try {
+   engineStatus="Installing bundled SmolLM2"
+   val bundled=withContext(Dispatchers.IO){BundledModelInstaller(context).install()}
+   engineStatus="Verifying bundled model"
    dao.saveModel(bundled)
-   val loaded=withContext(Dispatchers.IO){LocalInference.load(bundled.path,1024)}
-   if(!loaded) Toast.makeText(context,"SmolLM2 is installed, but the native AI engine could not load it on this device.",Toast.LENGTH_LONG).show()
-  } else {
-   Toast.makeText(context,"Bundled SmolLM2 could not be installed. Check free storage and reinstall the app.",Toast.LENGTH_LONG).show()
+   if(!backendAvailable) error("llama.cpp JNI library is unavailable for this device.")
+   engineStatus="Loading AI engine"
+   val loaded=withContext(Dispatchers.Default){LocalInference.load(bundled.path,2048)}
+   if(!loaded) error("SmolLM2 model file was installed and verified, but llama.cpp could not initialize it.")
+   engineStatus="Model ready"
+  } catch (e: Exception) {
+   engineError=e.message ?: e.javaClass.simpleName
+   engineStatus="Loading failed"
+   android.util.Log.e("HAIRA-ENGINE","Automatic model initialization failed",e)
+   Toast.makeText(context,"HAIRA model setup failed: "+engineError,Toast.LENGTH_LONG).show()
   }
  }
 
@@ -105,20 +120,33 @@ fun HairaApp(){
   }}}){padding->
    when(tab){
     "HAIRA"->ChatScreen(Modifier.padding(padding),chats,chatId,dao.messages(chatId).collectAsState(initial=emptyList()).value,
-     onPick={chatId=it},onNew={scope.launch{chatId=dao.addConversation(ConversationEntity(title="New conversation"))}},
-     onSend={text->scope.launch{
-      if(chatId==0L)chatId=dao.addConversation(ConversationEntity(title=text.take(32)))
-      dao.addMessage(MessageEntity(conversationId=chatId,role="user",content=text))
-      val memoryContext=if(memoryEnabled)memories.joinToString("\n"){it.content}.take(3000)else ""
-      val prompt="Assistant style: "+style+"\nUser-approved memory:\n"+memoryContext+"\nUser: "+text+"\nAssistant:"
-      val answer=withContext(Dispatchers.Default){LocalInference.generate(prompt)}
-      if(!answer.isNullOrBlank())dao.addMessage(MessageEntity(conversationId=chatId,role="assistant",content=answer))
-      else Toast.makeText(context,"No working local model is loaded. Your message is saved; no fake response was created.",Toast.LENGTH_LONG).show()
-     }},onMic={micPermission.launch(Manifest.permission.RECORD_AUDIO)},onSpeak={voice.speak(it)})
+     engineStatus=engineStatus,engineError=engineError,isGenerating=isGenerating,
+     onPick={chatId=it},onNew={scope.launch{chatId=dao.addConversation(ConversationEntity(title="Chat "+(chats.size+1)))}},
+     onSend={text->
+      if(!isGenerating){
+       scope.launch{
+        isGenerating=true
+        try {
+         if(engineStatus!="Model ready") error(engineError ?: "The local AI model is not ready yet.")
+         val activeId=if(chatId==0L)dao.addConversation(ConversationEntity(title=text.take(32))) else chatId
+         chatId=activeId
+         dao.addMessage(MessageEntity(conversationId=activeId,role="user",content=text))
+         val memoryContext=if(memoryEnabled)memories.joinToString("\n"){it.content}.take(3000)else ""
+         val prompt="Assistant style: "+style+"\nUser-approved memory:\n"+memoryContext+"\nUser: "+text+"\nAssistant:"
+         val answer=withContext(Dispatchers.Default){LocalInference.generate(prompt)}
+         if(!answer.isNullOrBlank())dao.addMessage(MessageEntity(conversationId=activeId,role="assistant",content=answer.trim()))
+         else error("The model returned an empty response.")
+        } catch(e:Exception) {
+         android.util.Log.e("HAIRA-CHAT","Message generation failed",e)
+         Toast.makeText(context,e.message ?: "AI response failed.",Toast.LENGTH_LONG).show()
+        } finally { isGenerating=false }
+       }
+      }
+     },onMic={micPermission.launch(Manifest.permission.RECORD_AUDIO)},onSpeak={voice.speak(it)})
     "Studio"->StudioScreen(Modifier.padding(padding),notes,{t,b->scope.launch{dao.saveNote(NoteEntity(title=t,body=b))}},{n->scope.launch{dao.deleteNote(n)}})
     "Actions"->ActionsScreen(Modifier.padding(padding),{context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS))},{val i=Intent(Intent.ACTION_SEND).apply{type="text/plain";putExtra(Intent.EXTRA_TEXT,"HAIRA AI")};context.startActivity(Intent.createChooser(i,"Share"))})
     "Builder"->StatusScreen(Modifier.padding(padding),"BUILDER","Project generation is not implemented in this build yet.")
-    else->SystemScreen(Modifier.padding(padding),models,memories,memoryEnabled,style,
+    else->SystemScreen(Modifier.padding(padding),models,memories,memoryEnabled,style,engineStatus,backendAvailable,
      onImport={modelPicker.launch(arrayOf("application/octet-stream","application/*"))},
      onDownload={item->runCatching{ModelDownloader(context).start(item)}.onSuccess{Toast.makeText(context,"Download started. Android Download Manager will show progress.",Toast.LENGTH_LONG).show()}.onFailure{Toast.makeText(context,"Download could not start: "+it.message,Toast.LENGTH_LONG).show()}},
      onLoad={model->scope.launch{val ok=withContext(Dispatchers.Default){LocalInference.load(model.path)};Toast.makeText(context,if(ok)"Model loaded" else "Native llama.cpp engine is not packaged or the model could not load.",Toast.LENGTH_LONG).show()}},
@@ -134,17 +162,18 @@ fun HairaApp(){
 }
 
 @Composable
-private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit){
+private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit){
  var draft by remember{mutableStateOf("")}
- Column(modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Night,Color(0xFF0A1D32)))).padding(16.dp)){
+ Column(modifier.fillMaxSize().imePadding().background(Brush.verticalGradient(listOf(Night,Color(0xFF0A1D32)))).padding(16.dp)){
   Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("HAIRA AI",color=Color.White,fontSize=25.sp,fontWeight=FontWeight.Bold);Text("LOCAL PERSONAL ASSISTANT",color=Muted,fontSize=9.sp,letterSpacing=2.sp)};TextButton(onClick=onNew){Text("+ New",color=Cyan)}}
-  if(chats.isNotEmpty())Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){chats.take(3).forEach{AssistChip(onClick={onPick(it.id)},label={Text(it.title.take(12),maxLines=1)})}}
-  Card(Modifier.fillMaxWidth().padding(top=8.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("ENGINE STATUS",color=Cyan,fontSize=10.sp,fontWeight=FontWeight.Bold);Text(if(LocalInference.backendAvailable)"JNI backend detected; load a model in System." else "llama.cpp JNI backend is not included yet.",color=Warning,fontSize=12.sp)}}
+  if(chats.isNotEmpty())LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=8.dp)){items(chats,key={it.id}){chat->FilterChip(selected=chat.id==chatId,onClick={onPick(chat.id)},label={Text(chat.title.ifBlank{"Untitled"}.take(24),maxLines=1)})}}
+  Card(Modifier.fillMaxWidth().padding(top=4.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("ENGINE STATUS",color=Cyan,fontSize=10.sp,fontWeight=FontWeight.Bold);Text(engineStatus,color=if(engineStatus=="Model ready")Cyan else Warning,fontSize=12.sp);if(engineError!=null)Text(engineError,color=Warning,fontSize=11.sp)}}
   LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(vertical=10.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
    if(messages.isEmpty())item{Text("Chat history is stored locally. AI replies are only generated when a real local model is loaded.",color=Muted,fontSize=13.sp)}
    items(messages,key={it.id}){m->Card(colors=CardDefaults.cardColors(containerColor=if(m.role=="user")Color(0xFF12344A)else Panel)){Column(Modifier.padding(12.dp)){Text(m.role.uppercase(),color=Cyan,fontSize=9.sp,fontWeight=FontWeight.Bold);Text(m.content,color=Color.White);if(m.role=="assistant")TextButton(onClick={onSpeak(m.content)}){Text("Read aloud")}}}}
+   if(isGenerating)item{Text("HAIRA is thinking…",color=Cyan,fontSize=13.sp)}
   }
-  Row(verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onMic){Text("MIC",color=Cyan)};OutlinedTextField(draft,{draft=it},Modifier.weight(1f),placeholder={Text("Message HAIRA")},keyboardOptions=KeyboardOptions(capitalization=KeyboardCapitalization.Sentences),maxLines=4);TextButton(onClick={val v=draft.trim();if(v.isNotEmpty()){onSend(v);draft=""}}){Text("SEND",color=Cyan)}}
+  Row(verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onMic){Text("MIC",color=Cyan)};OutlinedTextField(draft,{draft=it},Modifier.weight(1f),placeholder={Text("Message HAIRA")},keyboardOptions=KeyboardOptions(capitalization=KeyboardCapitalization.Sentences),maxLines=4,enabled=!isGenerating);TextButton(enabled=!isGenerating,onClick={val v=draft.trim();if(v.isNotEmpty()){onSend(v);draft=""}}){Text(if(isGenerating)"…" else "SEND",color=Cyan)}}
   Text("Offline speech recognition depends on installed Android language packs.",color=Muted,fontSize=9.sp)
  }
 }
@@ -165,13 +194,14 @@ private fun StudioScreen(modifier:Modifier,notes:List<NoteEntity>,onSave:(String
 private fun ActionsScreen(modifier:Modifier,onSettings:()->Unit,onShare:()->Unit){Column(modifier.fillMaxSize().padding(20.dp)){Text("ACTIONS",color=Color.White,fontSize=24.sp,fontWeight=FontWeight.Bold);Button(onClick=onSettings,Modifier.fillMaxWidth().padding(top=12.dp)){Text("Open Android Settings")};OutlinedButton(onClick=onShare,Modifier.fillMaxWidth()){Text("Share HAIRA")};Text("Uses Android intents; no security restrictions are bypassed.",color=Muted,fontSize=12.sp)}}
 
 @Composable
-private fun SystemScreen(modifier:Modifier,models:List<ModelEntity>,memories:List<MemoryEntity>,memoryEnabled:Boolean,style:String,onImport:()->Unit,onDownload:(com.haira.ai.ai.ModelItem)->Unit,onLoad:(ModelEntity)->Unit,onRemove:(ModelEntity)->Unit,onMemory:(Boolean)->Unit,onStyle:(String)->Unit,onAddMemory:()->Unit,onDeleteMemory:(MemoryEntity)->Unit,onClearMemory:()->Unit){
+private fun SystemScreen(modifier:Modifier,models:List<ModelEntity>,memories:List<MemoryEntity>,memoryEnabled:Boolean,style:String,engineStatus:String,backendAvailable:Boolean,onImport:()->Unit,onDownload:(com.haira.ai.ai.ModelItem)->Unit,onLoad:(ModelEntity)->Unit,onRemove:(ModelEntity)->Unit,onMemory:(Boolean)->Unit,onStyle:(String)->Unit,onAddMemory:()->Unit,onDeleteMemory:(MemoryEntity)->Unit,onClearMemory:()->Unit){
  Column(modifier.fillMaxSize().padding(16.dp)){
   Text("SYSTEM",color=Color.White,fontSize=24.sp,fontWeight=FontWeight.Bold)
+  Card(Modifier.fillMaxWidth().padding(top=10.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("ENGINE DIAGNOSTICS",color=Cyan,fontWeight=FontWeight.Bold);Text("JNI backend: "+if(backendAvailable)"Available" else "Unavailable",color=if(backendAvailable)Cyan else Warning);Text("Model state: "+engineStatus,color=if(engineStatus=="Model ready")Cyan else Warning)}}
   Card(Modifier.fillMaxWidth().padding(top=10.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("MODEL MANAGER",color=Cyan,fontWeight=FontWeight.Bold);Button(onClick=onImport,Modifier.fillMaxWidth()){Text("Import GGUF file")}
    ModelCatalog.models.forEach{item->Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(item.name,color=Color.White);Text(item.quant+" • "+(item.sizeBytes/1_000_000)+" MB",color=Muted,fontSize=10.sp)};TextButton(onClick={onDownload(item)}){Text("Download")}}}
    models.forEach{m->Column(Modifier.fillMaxWidth().padding(vertical=6.dp)){Text(m.displayName,color=Color.White);Text((m.sizeBytes/1_000_000).toString()+" MB • SHA-256 "+m.sha256.take(12),color=Muted,fontSize=10.sp);Row{TextButton(onClick={onLoad(m)}){Text("Load")};TextButton(onClick={onRemove(m)}){Text("Remove")}}}}
-   Text("Imported files are copied to app-specific external storage. Native inference requires the JNI backend, which is still pending.",color=Warning,fontSize=11.sp)
+   Text("The bundled SmolLM2 model is installed and loaded automatically at startup. Qwen3 remains optional.",color=Muted,fontSize=11.sp)
   }}
   Card(Modifier.fillMaxWidth().padding(top=10.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("USER-CONTROLLED MEMORY",color=Cyan,fontWeight=FontWeight.Bold);Row(verticalAlignment=Alignment.CenterVertically){Text("Enable memory",Modifier.weight(1f),color=Color.White);Switch(memoryEnabled,onMemory)};Row(verticalAlignment=Alignment.CenterVertically){Text("Saved: "+memories.size,color=Muted,modifier=Modifier.weight(1f));TextButton(onClick=onAddMemory,enabled=memoryEnabled){Text("Add")};TextButton(onClick=onClearMemory){Text("Clear")}};memories.forEach{m->Row(verticalAlignment=Alignment.CenterVertically){Text(m.content,Modifier.weight(1f),color=Color.White,fontSize=12.sp);TextButton(onClick={onDeleteMemory(m)}){Text("Delete")}}}}}
   Card(Modifier.fillMaxWidth().padding(top=10.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("PERSONALITY",color=Cyan,fontWeight=FontWeight.Bold);Row(horizontalArrangement=Arrangement.spacedBy(4.dp)){listOf("Friendly","Professional","Concise","Technical").forEach{FilterChip(selected=style==it,onClick={onStyle(it)},label={Text(it,fontSize=10.sp)})}};Text("HAIRA AI v2.0.0 • No ad SDKs",color=Muted,fontSize=11.sp)}}
