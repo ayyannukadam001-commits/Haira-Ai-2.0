@@ -12,4 +12,8 @@ class ModelCatalogTest {
         assertTrue(ModelCatalog.models.all { it.quant == "Q4_K_M" })
         assertTrue(ModelCatalog.models.sumOf { it.sizeBytes } < 1_000_000_000L)
     }
+
+    @Test fun catalogChecksumsAreSha256Hex() {
+        assertTrue(ModelCatalog.models.all { it.expectedSha256.matches(Regex("[0-9a-f]{64}")) })
+    }
 }
