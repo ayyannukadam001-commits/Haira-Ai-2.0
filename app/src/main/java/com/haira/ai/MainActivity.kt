@@ -12,6 +12,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -319,7 +320,7 @@ private fun ActionsScreen(
     onRemove: (ConnectedRepositoryEntity) -> Unit
 ) {
     var repoUrl by remember { mutableStateOf("") }
-    Column(modifier.fillMaxSize().padding(20.dp)) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
         Text("ACTIONS", color=Color.White, fontSize=24.sp, fontWeight=FontWeight.Bold)
         Button(onClick=onSettings, Modifier.fillMaxWidth().padding(top=12.dp)) {
             Text("Open Android Settings")
