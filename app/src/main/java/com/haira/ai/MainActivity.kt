@@ -127,10 +127,10 @@ fun HairaApp(){
        scope.launch{
         isGenerating=true
         try {
-         if(engineStatus!="Model ready") error(engineError ?: "The local AI model is not ready yet.")
          val activeId=if(chatId==0L)dao.addConversation(ConversationEntity(title=text.take(32))) else chatId
          chatId=activeId
          dao.addMessage(MessageEntity(conversationId=activeId,role="user",content=text))
+         if(engineStatus!="Model ready") error(engineError ?: "The local AI model is not ready yet.")
          val memoryContext=if(memoryEnabled)memories.joinToString("\n"){it.content}.take(3000)else ""
          val prompt="Assistant style: "+style+"\nUser-approved memory:\n"+memoryContext+"\nUser: "+text+"\nAssistant:"
          val answer=withContext(Dispatchers.Default){LocalInference.generate(prompt)}
