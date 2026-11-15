@@ -70,6 +70,7 @@ fun HairaApp(){
  val backendAvailable = remember { LocalInference.backendAvailable }
  var addMemory by remember{mutableStateOf(false)}
  var memoryDraft by remember{mutableStateOf("")}
+ var recognizedSpeech by remember{mutableStateOf<String?>(null)}
  val voice= remember(context){VoiceOutput(context)}
  DisposableEffect(db, voice) {
   onDispose {
@@ -107,7 +108,7 @@ fun HairaApp(){
  }}
  val speechResult= rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
   val phrase=result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
-  if(!phrase.isNullOrBlank())scope.launch{if(chatId==0L)chatId=dao.addConversation(ConversationEntity(title="Voice chat"));dao.addMessage(MessageEntity(conversationId=chatId,role="user",content=phrase))}
+  if(!phrase.isNullOrBlank()) recognizedSpeech=phrase
  }
  val micPermission= rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->
   if(granted){val i=Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply{putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);putExtra(RecognizerIntent.EXTRA_LANGUAGE,Locale.getDefault());putExtra(RecognizerIntent.EXTRA_PROMPT,"Speak to HAIRA")};runCatching{speechResult.launch(i)}.onFailure{Toast.makeText(context,"Speech service unavailable",Toast.LENGTH_SHORT).show()}}
@@ -122,6 +123,7 @@ fun HairaApp(){
     "HAIRA"->ChatScreen(Modifier.padding(padding),chats,chatId,dao.messages(chatId).collectAsState(initial=emptyList()).value,
      engineStatus=engineStatus,engineError=engineError,isGenerating=isGenerating,
      onPick={chatId=it},onNew={scope.launch{chatId=dao.addConversation(ConversationEntity(title="Chat "+(chats.size+1)))}},
+     recognizedSpeech=recognizedSpeech,onSpeechConsumed={recognizedSpeech=null},
      onSend={text->
       if(!isGenerating){
        scope.launch{
@@ -176,8 +178,12 @@ fun HairaApp(){
 }
 
 @Composable
-private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit){
+private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit,recognizedSpeech:String?,onSpeechConsumed:()->Unit){
  var draft by remember{mutableStateOf("")}
+ LaunchedEffect(recognizedSpeech,isGenerating){
+  val phrase=recognizedSpeech
+  if(!phrase.isNullOrBlank()&&!isGenerating){onSend(phrase);onSpeechConsumed()}
+ }
  Column(modifier.fillMaxSize().imePadding().background(Brush.verticalGradient(listOf(Night,Color(0xFF0A1D32)))).padding(16.dp)){
   Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("HAIRA AI",color=Color.White,fontSize=25.sp,fontWeight=FontWeight.Bold);Text("LOCAL PERSONAL ASSISTANT",color=Muted,fontSize=9.sp,letterSpacing=2.sp)};TextButton(onClick=onNew){Text("+ New",color=Cyan)}}
   if(chats.isNotEmpty())LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=8.dp)){items(chats,key={it.id}){chat->FilterChip(selected=chat.id==chatId,onClick={onPick(chat.id)},label={Text((if(chat.title=="New conversation") "Chat "+(chats.indexOf(chat)+1) else chat.title).ifBlank{"Untitled"}.take(24),maxLines=1)})}}
