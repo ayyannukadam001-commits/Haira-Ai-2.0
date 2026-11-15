@@ -11,8 +11,8 @@ set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(llama_cpp
   GIT_REPOSITORY https://github.com/ggml-org/llama.cpp.git
-  GIT_TAG b5214
-  GIT_SHALLOW FALSE
+  GIT_TAG master
+  GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(llama_cpp)
 add_library(haira_llama SHARED haira_llama.cpp)
