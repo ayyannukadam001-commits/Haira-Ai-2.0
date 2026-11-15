@@ -11,7 +11,8 @@ Kotlin + Jetpack Compose Android app targeting API 26+.
 - Android speech-recognition intent and TextToSpeech output. Offline speech recognition depends on the installed Android recognition service and language packs.
 - GGUF import validates the file header and calculates SHA-256; known catalog files are checked against pinned hashes.
 - User-controlled saved memories and local notes.
-- Actions tab can connect public GitHub repositories, save their metadata and README excerpts, and include those excerpts as untrusted reference context in local chats. Repository code is never executed.
+- Actions tab can connect public GitHub repositories, save their metadata and README excerpts, and include those excerpts as untrusted reference context in chats. Repository code is never executed.
+- System settings support an optional HTTPS OpenAI-compatible gateway (such as a self-hosted FreeLLMAPI or OmniRoute instance). API keys are encrypted with Android Keystore. Local SmolLM2 remains the default when online mode is disabled.
 - Builder exports a Kotlin + Jetpack Compose Android Studio starter-project ZIP.
 
 ## Verification
@@ -23,7 +24,7 @@ The emulator smoke test is separate from physical-device testing. A successful A
 ## Known limitations
 
 - Builder does not yet compile APKs inside HAIRA. It exports a starter Android Studio source ZIP.
-- GitHub repository connection currently supports public repositories and README-based context only. Private repository OAuth, full source indexing and repository write access are not implemented.
+- GitHub repository connection currently supports public repositories and README-based context only. It does not run or install FreeLLMAPI/OmniRoute. Those projects are server-side gateways (Docker/Node) and must be hosted separately; HAIRA can call them only after you supply a reachable HTTPS endpoint, model ID and API key. Private repository OAuth and full source indexing are not implemented.
 - Android speech recognition may use a cloud recognition service unless the device's selected speech service and language pack support offline recognition.
 - Optional model downloads use Android Download Manager; in-app pause/resume and retry controls are not implemented.
 - The uploaded artifact is a debug APK, not a release-signed APK.
