@@ -74,7 +74,7 @@ fun HairaApp(){
  }}
  val speechResult= rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
   val phrase=result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
-  if(!phrase.isNullOrBlank())scope.launch{if(chatId==0L)chatId=dao.addConversation(ConversationEntity("Voice chat"));dao.addMessage(MessageEntity(conversationId=chatId,role="user",content=phrase))}
+  if(!phrase.isNullOrBlank())scope.launch{if(chatId==0L)chatId=dao.addConversation(ConversationEntity(title="Voice chat"));dao.addMessage(MessageEntity(conversationId=chatId,role="user",content=phrase))}
  }
  val micPermission= rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->
   if(granted){val i=Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply{putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);putExtra(RecognizerIntent.EXTRA_LANGUAGE,Locale.getDefault());putExtra(RecognizerIntent.EXTRA_PROMPT,"Speak to HAIRA")};runCatching{speechResult.launch(i)}.onFailure{Toast.makeText(context,"Speech service unavailable",Toast.LENGTH_SHORT).show()}}
@@ -87,9 +87,9 @@ fun HairaApp(){
   }}}){padding->
    when(tab){
     "HAIRA"->ChatScreen(Modifier.padding(padding),chats,chatId,dao.messages(chatId).collectAsState(initial=emptyList()).value,
-     onPick={chatId=it},onNew={scope.launch{chatId=dao.addConversation(ConversationEntity("New conversation"))}},
+     onPick={chatId=it},onNew={scope.launch{chatId=dao.addConversation(ConversationEntity(title="New conversation"))}},
      onSend={text->scope.launch{
-      if(chatId==0L)chatId=dao.addConversation(ConversationEntity(text.take(32)))
+      if(chatId==0L)chatId=dao.addConversation(ConversationEntity(title=text.take(32)))
       dao.addMessage(MessageEntity(conversationId=chatId,role="user",content=text))
       val memoryContext=if(memoryEnabled)memories.joinToString("\n"){it.content}.take(3000)else ""
       val prompt="Assistant style: "+style+"\nUser-approved memory:\n"+memoryContext+"\nUser: "+text+"\nAssistant:"
