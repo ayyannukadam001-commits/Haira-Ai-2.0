@@ -38,6 +38,96 @@ object OpenAiCompatibleClient {
         return URI("https", null, uri.host, uri.port, endpointPath, null, null).toASCIIString()
     }
 
+    /**
+     * Reads OpenAI-compatible Server-Sent Events and emits each generated text fragment.
+     * The callback is invoked as fragments arrive; the returned value is the full answer.
+     */
+    suspend fun stream(
+        config: RemoteProviderConfig,
+        messages: List<RemoteChatMessage>,
+        onDelta: (String) -> Unit
+    ): String = withContext(Dispatchers.IO) {
+        require(config.model.isNotBlank()) { "Enter a model name." }
+        require(config.apiKey.isNotBlank()) { "Enter the provider's unified API key." }
+        require(messages.isNotEmpty()) { "There are no messages to send." }
+
+        val endpoint = endpointFor(config.baseUrl)
+        val body = JSONObject().apply {
+            put("model", config.model.trim())
+            put("messages", JSONArray().apply {
+                messages.forEach { message ->
+                    put(JSONObject().put("role", message.role).put("content", message.content))
+                }
+            })
+            put("stream", true)
+            put("max_tokens", 384)
+        }.toString()
+
+        val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 15_000
+            readTimeout = 90_000
+            instanceFollowRedirects = false
+            doOutput = true
+            setRequestProperty("Authorization", "Bearer ${config.apiKey}")
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            setRequestProperty("Accept", "text/event-stream")
+            setRequestProperty("Cache-Control", "no-cache")
+            setRequestProperty("User-Agent", "HAIRA-AI-Android")
+        }
+
+        try {
+            connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            val status = connection.responseCode
+            if (status !in 200..299) {
+                val errorBody = connection.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText().take(16_384) }.orEmpty()
+                val message = runCatching { JSONObject(errorBody).optJSONObject("error")?.optString("message") }.getOrNull()
+                error(message?.takeIf { it.isNotBlank() }?.take(300) ?: "Provider request failed with HTTP $status.")
+            }
+
+            val answer = StringBuilder()
+            var totalBytes = 0
+            connection.inputStream.bufferedReader(Charsets.UTF_8).useLines { lines ->
+                lines.forEach { line ->
+                    if (line.startsWith("data:")) {
+                        val data = line.substringAfter("data:").trimStart()
+                        if (data != "[DONE]") {
+                            totalBytes += data.length
+                            require(totalBytes <= 2 * 1024 * 1024) { "Provider stream exceeded the 2 MB safety limit." }
+                            val fragment = deltaFromSseData(data)
+                            if (fragment.isNotEmpty()) {
+                                answer.append(fragment)
+                                onDelta(fragment)
+                            }
+                        }
+                    }
+                }
+            }
+            val result = answer.toString().trim()
+            require(result.isNotBlank()) { "Provider returned an empty streamed response." }
+            result
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    internal fun deltaFromSseData(data: String): String {
+        if (data.isBlank() || data == "[DONE]") return ""
+        val root = JSONObject(data)
+        val delta = root.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("delta")
+            ?: return ""
+        return when (val content = delta.opt("content")) {
+            is String -> content
+            is JSONArray -> buildString {
+                for (i in 0 until content.length()) {
+                    val item = content.optJSONObject(i)
+                    if (item?.optString("type") == "text") append(item.optString("text"))
+                }
+            }
+            else -> ""
+        }
+    }
+
     suspend fun complete(
         config: RemoteProviderConfig,
         messages: List<RemoteChatMessage>
