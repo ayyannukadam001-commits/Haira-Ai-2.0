@@ -171,7 +171,7 @@ private fun HairaNextApp() {
                     listOf("New Chat","Images","Library","Customize","Projects","Remote","Explore","Models","Work Mode").forEach{label->
                         NavigationDrawerItem(label={Text(label)},icon={Icon(when(label){"New Chat"->Icons.Default.Add;"Images"->Icons.Default.Image;"Library"->Icons.Default.Folder;"Customize"->Icons.Default.Tune;"Projects"->Icons.Default.Workspaces;"Remote"->Icons.Default.Devices;"Explore"->Icons.Default.Explore;"Models"->Icons.Default.Memory;else->Icons.Default.Work},null)},selected=page==label,onClick={
                             page=when(label){"New Chat"->"Chat";"Work Mode"->{work=true;"Chat"};else->label}
-                            if(label=="New Chat")scope.launch{chatId=dao.addConversation(ConversationEntity("New conversation"))}
+                            if(label=="New Chat")scope.launch{chatId=dao.addConversation(ConversationEntity(title="New conversation"))}
                             drawer=false
                         },modifier=Modifier.padding(horizontal=10.dp))
                     }
@@ -192,17 +192,17 @@ private fun HairaNextApp() {
                 bottomBar={NavigationBar(containerColor=Panel){listOf("Home" to Icons.Default.Home,"Chat" to Icons.Default.Chat,"Studio" to Icons.Default.AutoAwesome,"Work" to Icons.Default.Work,"System" to Icons.Default.Settings).forEach{(label,icon)->
                     NavigationBarItem(selected=page==label||(label=="System"&&page in listOf("Settings","Models")),onClick={
                         page=when(label){"System"->"Settings";"Work"->{work=true;"Chat"};else->label}
-                        if(label=="Chat"&&chatId==0L)scope.launch{chatId=dao.addConversation(ConversationEntity("New conversation"))}
+                        if(label=="Chat"&&chatId==0L)scope.launch{chatId=dao.addConversation(ConversationEntity(title="New conversation"))}
                     },icon={Icon(icon,null)},label={Text(label,fontSize=10.sp)})
                 }}}
             ){padding->
                 when(page){
                     "Home"->HomePage(Modifier.padding(padding),provider?.model?:"No online model selected",engine,chats.size,
-                        {page="Chat";if(chatId==0L)scope.launch{chatId=dao.addConversation(ConversationEntity("New conversation"))}},
-                        {work=true;page="Chat";if(chatId==0L)scope.launch{chatId=dao.addConversation(ConversationEntity("Work session"))}},
+                        {page="Chat";if(chatId==0L)scope.launch{chatId=dao.addConversation(ConversationEntity(title="New conversation"))}},
+                        {work=true;page="Chat";if(chatId==0L)scope.launch{chatId=dao.addConversation(ConversationEntity(title="Work session"))}},
                         {page="Models"})
                     "Chat"->{
-                        if(chatId==0L)LaunchedEffect(Unit){chatId=dao.addConversation(ConversationEntity("New conversation"))}
+                        if(chatId==0L)LaunchedEffect(Unit){chatId=dao.addConversation(ConversationEntity(title="New conversation"))}
                         val messages by dao.messages(chatId).collectAsState(initial=emptyList())
                         ConversationPage(Modifier.padding(padding),messages,busy,live,failure,work,attachedName,speech,
                             onWork={work=it},onImage={imagePicker.launch(arrayOf("image/*"))},onFile={filePicker.launch(arrayOf("text/plain","text/markdown","application/json","text/csv"))},
@@ -213,7 +213,7 @@ private fun HairaNextApp() {
                                     val imageToSend=image;val fileToSend=attachedText;val name=attachedName
                                     image=null;attachedText=null;attachedName=null
                                     try{
-                                        val id=if(chatId==0L)dao.addConversation(ConversationEntity(prompt.take(36).ifBlank{"Image conversation"}))else chatId;chatId=id
+                                        val id=if(chatId==0L)dao.addConversation(ConversationEntity(title=prompt.take(36).ifBlank{"Image conversation"}))else chatId;chatId=id
                                         val userText=buildString{append(prompt);if(fileToSend!=null)append("\n\n[Attached file: $name]\n").append(fileToSend);if(imageToSend!=null)append("\n[Image attached]")}
                                         dao.addMessage(MessageEntity(conversationId=id,role="user",content=userText))
                                         val history=dao.messages(id).first().takeLast(10)
@@ -266,16 +266,13 @@ private fun HairaNextApp() {
 
 @Composable
 private fun BrandMark(size:Int){
-    Box(Modifier.size(size.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(Color(0xFF2B111C),Color(0xFF101D32)))),contentAlignment=Alignment.Center){
-        Canvas(Modifier.fillMaxSize().padding(3.dp)){
-            val w=this.size.width;val h=this.size.height
-            val p=Path().apply{moveTo(w*.5f,h*.04f);lineTo(w*.94f,h*.28f);lineTo(w*.94f,h*.72f);lineTo(w*.5f,h*.96f);lineTo(w*.06f,h*.72f);lineTo(w*.06f,h*.28f);close()}
-            drawPath(p,Red,style=Stroke(w*.055f));drawPath(p,Blue.copy(.8f),style=Stroke(w*.025f))
-            drawLine(Txt,androidx.compose.ui.geometry.Offset(w*.28f,h*.3f),androidx.compose.ui.geometry.Offset(w*.28f,h*.7f),w*.09f)
-            drawLine(Txt,androidx.compose.ui.geometry.Offset(w*.72f,h*.3f),androidx.compose.ui.geometry.Offset(w*.72f,h*.7f),w*.09f)
-            drawLine(Txt,androidx.compose.ui.geometry.Offset(w*.28f,h*.5f),androidx.compose.ui.geometry.Offset(w*.72f,h*.5f),w*.09f)
-            drawCircle(Blue,w*.055f,androidx.compose.ui.geometry.Offset(w*.5f,h*.5f))
-        }
+    Box(
+        Modifier.size(size.dp).clip(RoundedCornerShape(16.dp))
+            .background(Brush.linearGradient(listOf(Color(0xFF24131D),Color(0xFF101D32))))
+            .border(1.dp,Blue.copy(.45f),RoundedCornerShape(16.dp)),
+        contentAlignment=Alignment.Center
+    ){
+        Text("ℹ️",fontSize=(size*.53f).sp,textAlign=TextAlign.Center)
     }
 }
 
