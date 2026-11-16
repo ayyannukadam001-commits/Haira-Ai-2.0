@@ -34,6 +34,10 @@ class GitHubProjectPublisher {
         val metadata = request("$api", "GET", null, headers)
         require(metadata.first in 200..299) { "GitHub repository access failed (HTTP ${metadata.first})." }
         val branch = JSONObject(metadata.second).optString("default_branch").ifBlank { "main" }
+        val workflow = request("$api/actions/workflows/generated-project-build.yml", "GET", null, headers)
+        require(workflow.first in 200..299) {
+            "The selected repository does not contain HAIRA's generated-project-build.yml workflow. Use the HAIRA AI 2.0 repository."
+        }
 
         val archive = ByteArrayOutputStream().also { ProjectZipGenerator.write(it, appName, packageId) }.toByteArray()
         require(archive.size <= 8 * 1024 * 1024) { "Generated project archive is too large for direct GitHub upload." }
