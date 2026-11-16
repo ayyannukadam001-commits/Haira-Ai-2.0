@@ -197,6 +197,7 @@ fun HairaApp(){
            }){ fragment -> streamingPreview += fragment }
           }.getOrElse { remoteFailure ->
            if(engineStatus=="Model ready" && LocalInference.isLoaded) {
+            streamingPreview=""
             android.util.Log.w("HAIRA-CHAT","Remote provider failed; trying the ready local model",remoteFailure)
             withContext(Dispatchers.Default){LocalInference.generate(prompt)}
              ?: throw IllegalStateException("Online provider failed (${remoteFailure.message ?: "unknown error"}) and the local model returned no response.")
