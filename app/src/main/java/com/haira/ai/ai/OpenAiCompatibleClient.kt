@@ -114,6 +114,91 @@ class OpenAiCompatibleClient {
         }
     }
 
+
+    suspend fun stream(
+        baseUrl: String,
+        apiKey: String,
+        model: String,
+        messages: List<Pair<String, String>>,
+        onDelta: (String) -> Unit
+    ): String = withContext(Dispatchers.IO) {
+        val parsedBase = Uri.parse(baseUrl.trim())
+        require(parsedBase.scheme.equals("https", true) && !parsedBase.host.isNullOrBlank() &&
+            parsedBase.userInfo == null && parsedBase.query == null && parsedBase.fragment == null) {
+            "The online provider endpoint must be a valid HTTPS URL."
+        }
+        require(apiKey.isNotBlank()) { "Online provider API key is missing." }
+        require(model.isNotBlank() && messages.isNotEmpty()) { "Model or chat context is missing." }
+        val normalized = baseUrl.trim().trimEnd('/')
+        val endpoint = when {
+            normalized.endsWith("/chat/completions") -> normalized
+            normalized.endsWith("/v1") -> "$normalized/chat/completions"
+            else -> "$normalized/v1/chat/completions"
+        }
+        val messageArray = JSONArray()
+        messages.takeLast(12).forEach { (role, text) ->
+            require(role in setOf("system", "user", "assistant")) { "Unsupported chat role." }
+            messageArray.put(JSONObject().put("role", role).put("content", text.take(5_000)))
+        }
+        val payload = JSONObject().put("model", model).put("messages", messageArray)
+            .put("stream", true).put("max_tokens", 1024).toString().toByteArray(Charsets.UTF_8)
+        val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 15_000
+            readTimeout = 120_000
+            doOutput = true
+            instanceFollowRedirects = false
+            setRequestProperty("Authorization", "Bearer $apiKey")
+            setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Accept", "text/event-stream")
+            setRequestProperty("User-Agent", "HAIRA-AI-Android")
+            setFixedLengthStreamingMode(payload.size)
+        }
+        try {
+            connection.outputStream.use { it.write(payload) }
+            val status = connection.responseCode
+            if (status !in 200..299) {
+                val errorBody = connection.errorStream?.use { readLimited(it, 1024 * 1024) }.orEmpty()
+                val providerMessage = runCatching {
+                    val json = JSONObject(errorBody)
+                    json.optJSONObject("error")?.optString("message")
+                        ?: json.optString("message")
+                }.getOrNull().orEmpty()
+                throw IllegalStateException(when (status) {
+                    401, 403 -> "Provider authentication failed. Check the API key."
+                    404 -> "Provider endpoint or model was not found. Check the model ID."
+                    429 -> "Provider rate limit reached. Try again later."
+                    else -> "Provider request failed (HTTP $status). " + providerMessage.take(200)
+                })
+            }
+            val answer = StringBuilder()
+            connection.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
+                while (true) {
+                    val line = reader.readLine() ?: break
+                    if (!line.startsWith("data:")) continue
+                    val data = line.removePrefix("data:").trim()
+                    if (data.isEmpty() || data == "[DONE]") continue
+                    val delta = runCatching {
+                        val root = com.google.gson.JsonParser.parseString(data).asJsonObject
+                        val choices = root.getAsJsonArray("choices")
+                        val deltaObject = choices?.firstOrNull()?.asJsonObject?.getAsJsonObject("delta")
+                        val content = deltaObject?.get("content")
+                        if (content != null && content.isJsonPrimitive && content.asJsonPrimitive.isString)
+                            content.asString else ""
+                    }.getOrDefault("")
+                    if (delta.isNotEmpty()) {
+                        answer.append(delta)
+                        onDelta(delta)
+                    }
+                }
+            }
+            require(answer.isNotBlank()) { "Provider returned an empty streamed response." }
+            answer.toString().take(20_000)
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     private fun readLimited(input: java.io.InputStream, maxBytes: Int): String {
         val output = ByteArrayOutputStream()
         val buffer = ByteArray(8 * 1024)
