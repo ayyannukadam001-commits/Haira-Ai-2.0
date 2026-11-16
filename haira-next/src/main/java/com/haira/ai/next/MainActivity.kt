@@ -159,9 +159,11 @@ private fun HairaNextApp() {
         runCatching{speechPicker.launch(intent)}.onFailure{failure="Speech service unavailable."}
     }else failure="Microphone permission denied."}
 
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    LaunchedEffect(drawer) { if (drawer) drawerState.open() else drawerState.close() }
     MaterialTheme(colorScheme=darkColorScheme(primary=Red,secondary=Blue,background=Ink,surface=Panel,onSurface=Txt,onBackground=Txt)){
         ModalNavigationDrawer(
-            drawerState=rememberDrawerState(if(drawer)DrawerValue.Open else DrawerValue.Closed),
+            drawerState=drawerState,
             drawerContent={
                 ModalDrawerSheet(drawerContainerColor=Panel){
                     Spacer(Modifier.height(16.dp))
