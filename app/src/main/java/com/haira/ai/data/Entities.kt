@@ -1,5 +1,6 @@
 package com.haira.ai.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -50,6 +51,6 @@ data class ConnectedRepositoryEntity(
     val defaultBranch: String,
     val description: String,
     val readmeExcerpt: String,
-    val sourceExcerpt: String = "",
+    @ColumnInfo(defaultValue = "''") val sourceExcerpt: String = "",
     val syncedAt: Long = System.currentTimeMillis()
 )
