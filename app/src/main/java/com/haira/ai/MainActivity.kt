@@ -580,7 +580,7 @@ private fun SystemScreen(modifier:Modifier,models:List<ModelEntity>,memories:Lis
 
 @Composable
 private fun BuilderScreen(modifier:Modifier,appName:String,onAppName:(String)->Unit,packageId:String,onPackageId:(String)->Unit,repositories:List<ConnectedRepositoryEntity>,githubTokenConfigured:Boolean,onBuildApk:(String,String,String)->Unit,onExport:(String,String)->Unit){
- var buildRepoUrl by remember(repositories){mutableStateOf(repositories.firstOrNull()?.htmlUrl.orEmpty())}
+ var buildRepoUrl by remember{mutableStateOf("https://github.com/ayyannukadam001-commits/Haira-Ai-2.0")}
  Column(modifier.fillMaxSize().padding(20.dp)){
   Text("ANDROID PROJECT BUILDER",color=Color.White,fontSize=22.sp,fontWeight=FontWeight.Bold)
   Text("Generate a Kotlin + Compose project, then build its APK on GitHub Actions.",color=Muted,modifier=Modifier.padding(top=8.dp))
