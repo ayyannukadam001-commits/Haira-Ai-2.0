@@ -50,5 +50,6 @@ data class ConnectedRepositoryEntity(
     val defaultBranch: String,
     val description: String,
     val readmeExcerpt: String,
+    val sourceExcerpt: String = "",
     val syncedAt: Long = System.currentTimeMillis()
 )
