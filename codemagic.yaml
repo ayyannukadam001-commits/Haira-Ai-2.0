@@ -24,7 +24,6 @@ workflows:
           set -euo pipefail
           curl -fL --retry 3 --retry-all-errors https://services.gradle.org/distributions/gradle-8.9-bin.zip -o /tmp/gradle-8.9-bin.zip
           unzip -q /tmp/gradle-8.9-bin.zip -d /tmp
-          echo "/tmp/gradle-8.9/bin" >> "$CM_ENV"
       - name: Download and verify bundled SmolLM2 model
         script: |
           set -euo pipefail
