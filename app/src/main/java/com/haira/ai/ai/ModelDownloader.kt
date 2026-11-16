@@ -11,7 +11,7 @@ class ModelDownloader(private val context:Context){
    .setTitle(item.name)
    .setDescription("Downloading GGUF model for HAIRA AI")
    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-   .setAllowedOverMetered(true)
+   .setAllowedOverMetered(false)
    .setAllowedOverRoaming(false)
    .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,"HAIRA_Models/"+filename)
   val manager=context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager

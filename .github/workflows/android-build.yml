@@ -40,17 +40,18 @@ jobs:
       - name: Run unit tests
         run: gradle --no-daemon :app:testDebugUnitTest
       - name: Upload built debug APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: HAIRA-AI-2.0-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          if-no-files-found: warn
       - name: Install, launch and test local inference on Android emulator
-        timeout-minutes: 35
+        timeout-minutes: 25
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
-          emulator-boot-timeout: 1500
+          api-level: 34
+          emulator-boot-timeout: 900
           target: google_apis
           arch: x86_64
           profile: pixel_6
@@ -59,10 +60,23 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
+            set -euxo pipefail
+            adb wait-for-device
+            adb devices -l
+            adb shell getprop sys.boot_completed
+            adb shell df -h /data
             adb logcat -c
             adb logcat > emulator-logcat.txt &
             LOGCAT_PID=$!
             trap 'kill "$LOGCAT_PID" 2>/dev/null || true' EXIT
+            echo "Preflight install: surface the exact package-manager failure before Android Test Orchestrator runs"
+            if ! adb install -r -g app/build/outputs/apk/debug/app-debug.apk; then
+              echo "APK install preflight failed; collecting package manager and device diagnostics"
+              adb shell df -h /data || true
+              adb shell dumpsys diskstats || true
+              adb logcat -d -t 3000 || true
+              exit 1
+            fi
             gradle --no-daemon connectedDebugAndroidTest
       - name: Upload emulator diagnostics
         if: always()

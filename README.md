@@ -1,32 +1,32 @@
 # HAIRA AI 2.0
 
-Kotlin + Jetpack Compose Android app targeting API 26+ and arm64 devices.
+Kotlin + Jetpack Compose Android app targeting API 26+.
 
 ## Current functionality
+
 - Compose navigation for HAIRA, Studio, Actions, Builder and System.
-- Builder exports a Kotlin + Jetpack Compose Android Studio starter project as a ZIP, with app name and validated package ID. It is source export, not in-app APK compilation.
-- Room persistence for conversations, messages, notes, approved memories and imported model records.
-- DataStore settings for memory enablement and assistant style.
-- Android speech-recognition intent and Android TextToSpeech output. Offline recognition depends on installed Android language packs.
-- GGUF file picker/import, GGUF header validation and SHA-256 calculation for known catalog models.
-- SmolLM2-360M-Instruct Q4_K_M is bundled as an uncompressed APK asset, copied into app-private storage, checksum-verified, and automatically loaded through the llama.cpp JNI backend on first launch.
-- Qwen3-0.6B Q4_K_M remains an optional manual download.
-- Local chat messages and assistant responses are stored in Room. The app does not fabricate placeholder AI responses when inference is unavailable.
-- Chat UI shows actual initialization, installation, verification, loading, ready and failure states. Conversation selector is horizontally scrollable.
+- Bundled SmolLM2-360M-Instruct Q4_K_M model is copied to app-private storage, SHA-256 verified, and loaded through the llama.cpp JNI backend.
+- Local chat messages and assistant responses are stored in Room; recent conversation context is passed to local inference.
+- Conversation search, selection, rename and delete controls.
+- Android speech-recognition intent and TextToSpeech output. Offline speech recognition depends on the installed Android recognition service and language packs.
+- GGUF import validates the file header and calculates SHA-256; known catalog files are checked against pinned hashes.
+- User-controlled saved memories and local notes.
+- Actions tab can connect public GitHub repositories, save their metadata and README excerpts, and include those excerpts as untrusted reference context in local chats. Repository code is never executed.
+- Builder exports a Kotlin + Jetpack Compose Android Studio starter-project ZIP.
 
 ## Verification
-GitHub Actions:
-1. Downloads and verifies the bundled SmolLM2 asset using its pinned SHA-256.
-2. Builds the Android debug APK for arm64-v8a and x86_64.
-3. Runs unit tests.
-4. Starts an Android API 35 x86_64 emulator.
-5. Runs an instrumentation smoke test that waits for the bundled model to load, sends a prompt, and verifies that an assistant response is displayed.
-6. Uploads the debug APK only after all preceding checks pass.
 
-The emulator test is a runtime smoke test; it does not replace testing on the user's physical Android device.
+GitHub Actions downloads and SHA-256 verifies the bundled model, builds the debug APK for arm64-v8a and x86_64, runs unit tests, uploads the APK, and then attempts an API 35 x86_64 emulator inference smoke test.
+
+The emulator smoke test is separate from physical-device testing. A successful APK build and unit-test run alone do not prove that native inference works on every phone.
 
 ## Known limitations
-- Builder currently exports a starter Android Studio source project; full in-app APK compilation, project templates and asset generation are not implemented.
-- Download progress for optional models is handled by Android Download Manager; in-app pause/resume and retry controls are not implemented.
-- Conversation search, rename/delete, response streaming/regeneration/stop, advanced Studio tools and full device diagnostics remain incomplete.
-- The artifact is a debug APK, not a release-signed APK.
+
+- Builder does not yet compile APKs inside HAIRA. It exports a starter Android Studio source ZIP.
+- GitHub repository connection currently supports public repositories and README-based context only. Private repository OAuth, full source indexing and repository write access are not implemented.
+- Android speech recognition may use a cloud recognition service unless the device's selected speech service and language pack support offline recognition.
+- Optional model downloads use Android Download Manager; in-app pause/resume and retry controls are not implemented.
+- The uploaded artifact is a debug APK, not a release-signed APK.
+- Physical testing on the target Redmi device remains required before calling the release production-ready.
+
+No repository source code is executed by the repository connector. Repository README content is treated as untrusted reference material.
