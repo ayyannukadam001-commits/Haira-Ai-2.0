@@ -26,6 +26,20 @@ class OpenAiCompatibleClientTest {
     }
 
     @Test
+    fun extractsTextFromOpenAiStreamingEvents() {
+        assertEquals("Hello", OpenAiCompatibleClient.deltaFromSseData(
+            """{"choices":[{"delta":{"content":"Hello"}}]}"""
+        ))
+        assertEquals(" world", OpenAiCompatibleClient.deltaFromSseData(
+            """{"choices":[{"delta":{"content":[{"type":"text","text":" world"}]}}]}"""
+        ))
+        assertEquals("", OpenAiCompatibleClient.deltaFromSseData("[DONE]"))
+        assertEquals("", OpenAiCompatibleClient.deltaFromSseData(
+            """{"choices":[{"delta":{"role":"assistant"}}]}"""
+        ))
+    }
+
+    @Test
     fun rejectsInsecureOrAmbiguousProviderUrls() {
         listOf(
             "http://example.com",
