@@ -539,7 +539,7 @@ private fun ProviderSettingsCard(
             Row(verticalAlignment=Alignment.CenterVertically, modifier=Modifier.padding(top=4.dp)) {
                 Column(Modifier.weight(1f)) {
                     Text("Use online provider for chat", color=Color.White, fontSize=12.sp)
-                    Text("When enabled, chat text is sent to this server.", color=Muted, fontSize=10.sp)
+                    Text("When enabled, chat text and any attached images are sent to this server.", color=Muted, fontSize=10.sp)
                 }
                 Switch(checked=enabled, onCheckedChange={enabled=it})
             }
