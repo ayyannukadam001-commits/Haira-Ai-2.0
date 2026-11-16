@@ -15,7 +15,7 @@ permissions:
 jobs:
   debug-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -57,21 +57,22 @@ jobs:
           prerelease: true
           generate_release_notes: false
           files: app/build/outputs/apk/debug/app-debug.apk
-      # Keep the heavyweight device/emulator smoke test available on demand.
-      # It must not block normal APK builds when GitHub's hosted emulator is overloaded.
+      # Use a lean AOSP image for deterministic local-inference testing.
+      # The previous Google APIs image exhausted system partition headroom and
+      # repeatedly stalled Package Manager while installing the 305 MiB APK.
       - name: Install, launch and test local inference on Android emulator
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-        timeout-minutes: 25
+        timeout-minutes: 45
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
           emulator-boot-timeout: 900
-          target: google_apis
+          target: default
           arch: x86_64
-          profile: pixel_6
+          profile: pixel_2
           ram-size: 4096M
           heap-size: 1024M
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader -noaudio -no-boot-anim -camera-back none -no-snapshot -wipe-data
           disable-animations: true
           script: |
             set -euxo pipefail
@@ -83,8 +84,8 @@ jobs:
             adb logcat > emulator-logcat.txt &
             LOGCAT_PID=$!
             trap 'kill "$LOGCAT_PID" 2>/dev/null || true' EXIT
-            echo "Preflight install: surface the exact package-manager failure before Android Test Orchestrator runs"
-            timeout 600s adb install --no-streaming -r -g app/build/outputs/apk/debug/app-debug.apk || { echo "APK install preflight failed or timed out; collecting package manager and device diagnostics"; adb shell df -h /data || true; adb shell dumpsys diskstats || true; adb logcat -d -t 3000 || true; exit 1; }
+            echo "Preflight install: install the complete APK and surface Package Manager failures"
+            timeout 1200s adb install --streaming -r -g app/build/outputs/apk/debug/app-debug.apk || { echo "APK install preflight failed or timed out; collecting package manager and device diagnostics"; adb shell df -h /data || true; adb shell df -h /system || true; adb shell dumpsys diskstats || true; adb logcat -d -t 5000 || true; exit 1; }
             adb shell pm path com.haira.ai
             gradle --no-daemon connectedDebugAndroidTest -x installDebug
       - name: Upload emulator diagnostics
