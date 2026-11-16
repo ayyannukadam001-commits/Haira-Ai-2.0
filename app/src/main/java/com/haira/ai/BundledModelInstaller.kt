@@ -16,7 +16,6 @@ class BundledModelInstaller(private val context: Context) {
     companion object {
         private const val ASSET_NAME = "default-model.gguf"
         private const val MODEL_NAME = "SmolLM2-360M-Instruct"
-        private const val EXPECTED_BYTES = 272_427_976L
         private const val EXPECTED_SHA256 =
             "2fa3f013dcdd7b99f9b237717fa0b12d75bbb89984cc1274be1471a465bac9c2"
     }
@@ -28,15 +27,15 @@ class BundledModelInstaller(private val context: Context) {
             }
             val target = File(modelDir, "smollm2-360m-instruct-q4_k_m.gguf")
             onStage("Verifying bundled model")
-            if (target.isFile && target.length() == EXPECTED_BYTES &&
+            if (target.isFile && target.length() > 0L &&
                 sha256(target) == EXPECTED_SHA256
             ) {
                 return@withContext entity(target)
             }
 
             val available = StatFs(modelDir.absolutePath).availableBytes
-            require(available >= EXPECTED_BYTES + 32L * 1024L * 1024L) {
-                "Not enough free storage. Free at least 305 MB and reopen HAIRA."
+            require(available >= 280_000_000L) {
+                "Not enough free storage. Free at least 280 MB and reopen HAIRA."
             }
 
             onStage("Installing bundled model")
@@ -46,8 +45,8 @@ class BundledModelInstaller(private val context: Context) {
                     temp.outputStream().buffered().use { output -> input.copyTo(output) }
                 }
                 onStage("Verifying bundled model")
-                check(temp.length() == EXPECTED_BYTES) {
-                    "Bundled model size mismatch; refusing to install."
+                check(temp.isFile && temp.length() > 0L) {
+                    "Bundled model asset is empty; refusing to install."
                 }
                 val actualHash = sha256(temp)
                 check(actualHash == EXPECTED_SHA256) {
