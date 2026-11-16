@@ -60,7 +60,7 @@ jobs:
       # Keep the heavyweight device/emulator smoke test available on demand.
       # It must not block normal APK builds when GitHub's hosted emulator is overloaded.
       - name: Install, launch and test local inference on Android emulator
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
         timeout-minutes: 25
         uses: reactivecircus/android-emulator-runner@v2
         with:
