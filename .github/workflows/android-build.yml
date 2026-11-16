@@ -38,15 +38,17 @@ jobs:
             -o app/src/main/assets/default-model.gguf
           echo "2fa3f013dcdd7b99f9b237717fa0b12d75bbb89984cc1274be1471a465bac9c2  app/src/main/assets/default-model.gguf" | sha256sum --check
       - name: Build debug APK with llama.cpp
-        run: gradle --no-daemon :app:assembleDebug
+        run: gradle --no-daemon :app:assembleDebug :haira-next:assembleDebug
       - name: Run unit tests
-        run: gradle --no-daemon :app:testDebugUnitTest
+        run: gradle --no-daemon :app:testDebugUnitTest :haira-next:testDebugUnitTest
       - name: Upload built debug APK artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: HAIRA-AI-2.0-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            haira-next/build/outputs/apk/debug/haira-next-debug.apk
           if-no-files-found: warn
       - name: Publish direct APK download
         if: success() && github.event_name != 'pull_request'
@@ -56,7 +58,9 @@ jobs:
           name: HAIRA AI 2.0 Debug APK #${{ github.run_number }}
           prerelease: true
           generate_release_notes: false
-          files: app/build/outputs/apk/debug/app-debug.apk
+          files: |
+            app/build/outputs/apk/debug/app-debug.apk
+            haira-next/build/outputs/apk/debug/haira-next-debug.apk
       # Use a lean AOSP image for deterministic local-inference testing.
       # The previous Google APIs image exhausted system partition headroom and
       # repeatedly stalled Package Manager while installing the 305 MiB APK.
@@ -87,6 +91,12 @@ jobs:
             echo "Preflight install: install the complete APK and surface Package Manager failures"
             timeout 1200s adb install --streaming -r -g app/build/outputs/apk/debug/app-debug.apk || { echo "APK install preflight failed or timed out; collecting package manager and device diagnostics"; adb shell df -h /data || true; adb shell df -h /system || true; adb shell dumpsys diskstats || true; adb logcat -d -t 5000 || true; exit 1; }
             adb shell pm path com.haira.ai
+            echo "Install and launch the isolated HAIRA AI Next APK"
+            adb install --streaming -r -g haira-next/build/outputs/apk/debug/haira-next-debug.apk
+            adb shell am force-stop com.haira.ai.next || true
+            adb shell am start -n com.haira.ai.next/com.haira.ai.next.MainActivity
+            sleep 8
+            adb shell pidof com.haira.ai.next
             gradle --no-daemon connectedDebugAndroidTest -x installDebug
       - name: Upload emulator diagnostics
         if: always()
