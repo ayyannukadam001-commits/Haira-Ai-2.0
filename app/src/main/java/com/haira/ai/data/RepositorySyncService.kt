@@ -136,7 +136,7 @@ class RepositorySyncService {
         return text
             .replace(
                 Regex("(?im)(api[_-]?key|access[_-]?token|client[_-]?secret|password|secret)\\s*[:=]\\s*[\"']?[^\\s\"',}]+"),
-                "$1=[REDACTED]"
+                "\$1=[REDACTED]"
             )
             .replace(Regex("\\bgh[pousr]_[A-Za-z0-9_]{20,}\\b"), "[REDACTED_GITHUB_TOKEN]")
             .replace(Regex("\\bgithub_pat_[A-Za-z0-9_]{20,}\\b"), "[REDACTED_GITHUB_TOKEN]")
