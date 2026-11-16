@@ -243,10 +243,16 @@ fun HairaApp(){
      onSaveGitHubToken={token->scope.launch{runCatching{withContext(Dispatchers.IO){GitHubCredentialStore(context).save(token)}}.onSuccess{githubToken=token;Toast.makeText(context,"GitHub token encrypted and saved.",Toast.LENGTH_LONG).show()}.onFailure{Toast.makeText(context,it.message?: "Could not save GitHub token.",Toast.LENGTH_LONG).show()}}},
      onClearGitHubToken={scope.launch{withContext(Dispatchers.IO){GitHubCredentialStore(context).clear()};githubToken=null;Toast.makeText(context,"GitHub token removed.",Toast.LENGTH_LONG).show()}}
     )
-    "Builder"->BuilderScreen(Modifier.padding(padding),builderAppName,{builderAppName=it},builderPackage,{builderPackage=it}){name,pkg->
+    "Builder"->BuilderScreen(Modifier.padding(padding),builderAppName,{builderAppName=it},builderPackage,{builderPackage=it},connectedRepositories,!githubToken.isNullOrBlank(),
+     onBuildApk={name,pkg,repoUrl->scope.launch{
+      runCatching{GitHubProjectPublisher().publishAndBuild(repoUrl,githubToken.orEmpty(),name,pkg)}
+       .onSuccess{url->Toast.makeText(context,"Cloud APK build started. Opening GitHub Actions.",Toast.LENGTH_LONG).show();context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(url)))}
+       .onFailure{Toast.makeText(context,it.message?: "Cloud APK build failed.",Toast.LENGTH_LONG).show()}
+     }},
+     onExport={name,pkg->
       if(!ProjectZipGenerator.isValidPackageId(pkg)){Toast.makeText(context,"Use a package ID like com.example.myapp",Toast.LENGTH_LONG).show()}
       else{exportAppName=name;exportPackage=pkg;projectExporter.launch(name.trim().ifBlank{"AndroidProject"}.replace(Regex("[^A-Za-z0-9_-]"),"_")+".zip")}
-     }
+     })
     else->SystemScreen(
      Modifier.padding(padding),models,memories,memoryEnabled,style,engineStatus,backendAvailable,bundledVerified,LocalInference.isLoaded,voiceReady,providerConfig,
      onSaveProvider={config->scope.launch{
@@ -571,14 +577,18 @@ private fun SystemScreen(modifier:Modifier,models:List<ModelEntity>,memories:Lis
 }
 
 @Composable
-private fun BuilderScreen(modifier:Modifier,appName:String,onAppName:(String)->Unit,packageId:String,onPackageId:(String)->Unit,onExport:(String,String)->Unit){
+private fun BuilderScreen(modifier:Modifier,appName:String,onAppName:(String)->Unit,packageId:String,onPackageId:(String)->Unit,repositories:List<ConnectedRepositoryEntity>,githubTokenConfigured:Boolean,onBuildApk:(String,String,String)->Unit,onExport:(String,String)->Unit){
+ var buildRepoUrl by remember(repositories){mutableStateOf(repositories.firstOrNull()?.htmlUrl.orEmpty())}
  Column(modifier.fillMaxSize().padding(20.dp)){
   Text("ANDROID PROJECT BUILDER",color=Color.White,fontSize=22.sp,fontWeight=FontWeight.Bold)
-  Text("Generate an Android Studio-ready Kotlin + Compose starter project.",color=Muted,modifier=Modifier.padding(top=8.dp))
+  Text("Generate a Kotlin + Compose project, then build its APK on GitHub Actions.",color=Muted,modifier=Modifier.padding(top=8.dp))
   OutlinedTextField(appName,onAppName,Modifier.fillMaxWidth().padding(top=16.dp),label={Text("App name")},singleLine=true)
   OutlinedTextField(packageId,onPackageId,Modifier.fillMaxWidth().padding(top=8.dp),label={Text("Package ID")},singleLine=true)
   Text("Example: com.example.myapp",color=Muted,fontSize=11.sp,modifier=Modifier.padding(top=5.dp))
-  Button(onClick={onExport(appName,packageId)},enabled=appName.isNotBlank()&&ProjectZipGenerator.isValidPackageId(packageId),modifier=Modifier.fillMaxWidth().padding(top=16.dp)){Text("Export Android Studio ZIP")}
-  Text("This exports editable source code. It does not compile an APK inside HAIRA yet.",color=Warning,fontSize=12.sp,modifier=Modifier.padding(top=12.dp))
+  OutlinedTextField(buildRepoUrl,{buildRepoUrl=it},Modifier.fillMaxWidth().padding(top=10.dp),label={Text("GitHub repository URL")},singleLine=true,placeholder={Text("https://github.com/owner/repository")})
+  Button(onClick={onBuildApk(appName,packageId,buildRepoUrl)},enabled=githubTokenConfigured&&buildRepoUrl.startsWith("https://github.com/")&&appName.isNotBlank()&&ProjectZipGenerator.isValidPackageId(packageId),modifier=Modifier.fillMaxWidth().padding(top=12.dp)){Text("Build APK in Cloud")}
+  Text(if(githubTokenConfigured)"Uses your encrypted GitHub token to upload the project and start a remote APK build." else "Save a GitHub token in Actions first. It needs Contents: write, Actions: write and Workflows: write permissions.",color=if(githubTokenConfigured)Muted else Warning,fontSize=11.sp,modifier=Modifier.padding(top=8.dp))
+  OutlinedButton(onClick={onExport(appName,packageId)},enabled=appName.isNotBlank()&&ProjectZipGenerator.isValidPackageId(packageId),modifier=Modifier.fillMaxWidth().padding(top=8.dp)){Text("Export Android Studio ZIP")}
+  Text("Cloud builds run on GitHub-hosted machines; build availability depends on your GitHub Actions quota.",color=Muted,fontSize=10.sp,modifier=Modifier.padding(top=8.dp))
  }
 }
