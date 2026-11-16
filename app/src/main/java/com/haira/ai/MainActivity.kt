@@ -39,6 +39,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.room.Room
+import com.haira.ai.ai.ImageAttachmentEncoder
 import com.haira.ai.ai.LocalInference
 import com.haira.ai.ai.OpenAiCompatibleClient
 import com.haira.ai.ai.RemoteChatMessage
@@ -170,7 +171,7 @@ fun HairaApp(){
      onRenameClick={renameDraft=chats.firstOrNull{it.id==chatId}?.title.orEmpty();renameChatVisible=true},
      onDeleteChat={scope.launch{dao.deleteConversation(chatId);chatId=0L}},
      recognizedSpeech=recognizedSpeech,onSpeechConsumed={recognizedSpeech=null},
-     onSend={text->
+     onSend={text,imageUri->
       if(!isGenerating){
        scope.launch{
         isGenerating=true
@@ -179,7 +180,7 @@ fun HairaApp(){
         try {
          val activeId=if(chatId==0L)dao.addConversation(ConversationEntity(title=text.take(32))) else chatId
          chatId=activeId
-         dao.addMessage(MessageEntity(conversationId=activeId,role="user",content=text))
+         dao.addMessage(MessageEntity(conversationId=activeId,role="user",content=text+(if(imageUri!=null)" [Image attached]" else "")))
          val history=dao.messages(activeId).first().takeLast(6)
          val historyPrompt=history.joinToString("\n"){message->
           val role=if(message.role=="assistant")"assistant" else "user"
@@ -191,7 +192,14 @@ fun HairaApp(){
          val prompt="<|im_start|>system\n"+systemPrompt+"\n<|im_end|>\n"+historyPrompt+"\n<|im_start|>assistant\n"
          val activeRemote=providerConfig?.takeIf{it.enabled}
          val answer=if(activeRemote!=null){
-          runCatching {
+          if(imageUri!=null){
+           val imageData=ImageAttachmentEncoder.toJpegDataUrl(context,imageUri)
+           OpenAiCompatibleClient.completeWithImage(activeRemote,text,imageData)
+          }else if(text.startsWith("/image ",ignoreCase=true)){
+           val imagePrompt=text.substringAfter(" ").trim()
+           val imageUrl=OpenAiCompatibleClient.generateImage(activeRemote,imagePrompt)
+           "Image generated: "+imageUrl
+          }else runCatching {
            OpenAiCompatibleClient.stream(activeRemote,buildList{
             add(RemoteChatMessage("system",systemPrompt))
             history.forEach{message->add(RemoteChatMessage(if(message.role=="assistant")"assistant" else "user",message.content.take(1400)))}
@@ -205,6 +213,8 @@ fun HairaApp(){
            } else throw remoteFailure
           }
          }else{
+          if(imageUri!=null) error("Image understanding needs an online vision-capable model. Connect one in System settings.")
+          if(text.startsWith("/image ",ignoreCase=true)) error("Image generation needs an online image provider. Connect one in System settings.")
           if(engineStatus!="Model ready" || !LocalInference.isLoaded) error(engineError ?: "No AI engine is ready. Connect and enable an online provider in System settings, or wait for the local model to finish loading.")
           withContext(Dispatchers.Default){LocalInference.generate(prompt)}
          }
@@ -308,11 +318,13 @@ private fun HairaCore(modifier:Modifier=Modifier){
 }
 
 @Composable
-private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,chatError:String?,streamingPreview:String,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit,recognizedSpeech:String?,onSpeechConsumed:()->Unit,onRenameClick:()->Unit,onDeleteChat:()->Unit,onStopSpeak:()->Unit){
+private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,chatError:String?,streamingPreview:String,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String,Uri?)->Unit,onMic:()->Unit,onSpeak:(String)->Unit,recognizedSpeech:String?,onSpeechConsumed:()->Unit,onRenameClick:()->Unit,onDeleteChat:()->Unit,onStopSpeak:()->Unit){
  var draft by remember{mutableStateOf("")}
  var chatQuery by remember{mutableStateOf("")}
  var showHistory by remember{mutableStateOf(false)}
- LaunchedEffect(recognizedSpeech,isGenerating){val phrase=recognizedSpeech;if(!phrase.isNullOrBlank()&&!isGenerating){onSend(phrase);onSpeechConsumed()}}
+ var selectedImageUri by remember{mutableStateOf<Uri?>(null)}
+ val imagePicker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->selectedImageUri=uri}
+ LaunchedEffect(recognizedSpeech,isGenerating){val phrase=recognizedSpeech;if(!phrase.isNullOrBlank()&&!isGenerating){onSend(phrase,null);onSpeechConsumed()}}
  Column(modifier.fillMaxSize().imePadding().background(Color(0xFF050505)).padding(horizontal=16.dp,vertical=10.dp)){
   Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
    TextButton(onClick={showHistory=!showHistory},contentPadding=PaddingValues(horizontal=8.dp)){Text("☰",color=Color.White,fontSize=22.sp)}
@@ -374,12 +386,14 @@ private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:L
   Row(Modifier.fillMaxWidth().padding(top=8.dp),verticalAlignment=Alignment.CenterVertically){
    Card(Modifier.weight(1f),colors=CardDefaults.cardColors(containerColor=Color(0xFF191919)),shape=MaterialTheme.shapes.extraLarge){
     Row(Modifier.padding(horizontal=7.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically){
-     TextButton(onClick=onMic,contentPadding=PaddingValues(horizontal=7.dp)){Text("🎙",fontSize=17.sp)}
-     OutlinedTextField(value=draft,onValueChange={draft=it},modifier=Modifier.weight(1f).heightIn(min=48.dp,max=112.dp),placeholder={Text("Message HAIRA",color=Color(0xFF888888))},keyboardOptions=KeyboardOptions(capitalization=KeyboardCapitalization.Sentences),minLines=1,maxLines=4,enabled=!isGenerating)
-     TextButton(enabled=!isGenerating && draft.isNotBlank(),onClick={val value=draft.trim();if(value.isNotEmpty()){onSend(value);draft=""}},contentPadding=PaddingValues(horizontal=8.dp)){Text(if(isGenerating)"…" else "↑",color=Color.White,fontSize=23.sp)}
+     TextButton(onClick={imagePicker.launch(arrayOf("image/*"))},enabled=!isGenerating,contentPadding=PaddingValues(horizontal=5.dp)){Text("＋",fontSize=20.sp,color=if(selectedImageUri!=null)Cyan else Color.White)}
+     TextButton(onClick=onMic,contentPadding=PaddingValues(horizontal=5.dp)){Text("🎙",fontSize=17.sp)}
+     OutlinedTextField(value=draft,onValueChange={draft=it},modifier=Modifier.weight(1f).heightIn(min=48.dp,max=112.dp),placeholder={Text(if(selectedImageUri!=null)"Ask about attached image…" else "Message HAIRA • /image prompt to generate",color=Color(0xFF888888))},keyboardOptions=KeyboardOptions(capitalization=KeyboardCapitalization.Sentences),minLines=1,maxLines=4,enabled=!isGenerating)
+     TextButton(enabled=!isGenerating && draft.isNotBlank(),onClick={val value=draft.trim();if(value.isNotEmpty()){onSend(value,selectedImageUri);draft="";selectedImageUri=null}},contentPadding=PaddingValues(horizontal=8.dp)){Text(if(isGenerating)"…" else "↑",color=Color.White,fontSize=23.sp)}
     }
    }
   }
+  if(selectedImageUri!=null)Text("Image attached • tap + to replace",color=Cyan,fontSize=10.sp,modifier=Modifier.padding(top=4.dp))
   if(engineError!=null)Text("Local engine: "+engineError,color=Color(0xFFFFB66D),fontSize=9.sp,modifier=Modifier.padding(top=4.dp))
  }
 }
