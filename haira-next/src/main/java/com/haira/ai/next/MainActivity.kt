@@ -142,7 +142,7 @@ private fun HairaNextApp() {
         selectedPath?.let { path -> if(File(path).isFile){engine="Loading local model…";engine=if(withContext(Dispatchers.Default){LocalInference.load(path,2048)})"Local model ready" else "Local model failed"} }
     }
 
-    val imagePicker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->image=uri;if(uri!=null)attachedName="Image attached"}
+    val imagePicker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->image=uri;if(uri!=null){runCatching{ctx.contentResolver.takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION)};attachedName="Image attached"}}
     val filePicker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->if(uri!=null)scope.launch{
         runCatching{ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use{it.readText().take(120000)}?:error("Cannot read file.")}
             .onSuccess{attachedText=it;attachedName=uri.lastPathSegment?: "Text file"}
@@ -218,14 +218,23 @@ private fun HairaNextApp() {
                                         dao.addMessage(MessageEntity(conversationId=id,role="user",content=userText))
                                         val history=dao.messages(id).first().takeLast(10)
                                         val system="You are HAIRA, an honest and helpful AI assistant. Be concise but complete. Never claim an action succeeded unless it did. "+if(work)"WORK MODE: break complex goals into steps, track progress and assumptions, and ask before external or irreversible actions." else "NORMAL MODE: help with everyday questions and tasks."+"\nUser-approved memory:\n"+memories.joinToString("\n"){it.content}.take(1500)
+                                        val localPrompt="<|im_start|>system\n$system\n<|im_end|>\n"+history.joinToString("\n"){"<|im_start|>${it.role}\n${it.content.take(3000)}\n<|im_end|>"}+"\n<|im_start|>assistant\n"
                                         val remote=provider?.takeIf{it.enabled}
                                         val answer=if(remote!=null){
-                                            if(imageToSend!=null)OpenAiCompatibleClient.completeWithImage(remote,prompt.ifBlank{"Describe this image."},ImageAttachmentEncoder.toJpegDataUrl(ctx,imageToSend))
-                                            else OpenAiCompatibleClient.stream(remote,listOf(RemoteChatMessage("system",system))+history.map{RemoteChatMessage(it.role,it.content.take(6000))}){live+=it}
+                                            try {
+                                                if(imageToSend!=null)OpenAiCompatibleClient.completeWithImage(remote,prompt.ifBlank{"Describe this image."},ImageAttachmentEncoder.toJpegDataUrl(ctx,imageToSend))
+                                                else OpenAiCompatibleClient.stream(remote,listOf(RemoteChatMessage("system",system))+history.map{RemoteChatMessage(it.role,it.content.take(6000))}){live+=it}
+                                            } catch (remoteError:Exception) {
+                                                if(imageToSend==null && LocalInference.isLoaded) {
+                                                    live="Online provider unavailable. Switching to local model…"
+                                                    withContext(Dispatchers.Default){LocalInference.generate(localPrompt)}
+                                                        ?: throw IllegalStateException("Online provider failed and the local model returned no response.",remoteError)
+                                                } else throw remoteError
+                                            }
                                         }else{
                                             require(imageToSend==null){"Image understanding requires a connected vision-capable online model."}
                                             check(LocalInference.isLoaded){"No AI is ready. Connect an API provider or install and load a local GGUF model."}
-                                            withContext(Dispatchers.Default){LocalInference.generate("<|im_start|>system\n$system\n<|im_end|>\n"+history.joinToString("\n"){"<|im_start|>${it.role}\n${it.content.take(3000)}\n<|im_end|>"}+"\n<|im_start|>assistant\n")}?:error("Local model returned an empty response.")
+                                            withContext(Dispatchers.Default){LocalInference.generate(localPrompt)}?:error("Local model returned an empty response.")
                                         }
                                         require(answer.isNotBlank()){"Model returned an empty response."}
                                         dao.addMessage(MessageEntity(conversationId=id,role="assistant",content=answer.trim()))
