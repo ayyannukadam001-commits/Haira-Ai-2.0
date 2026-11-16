@@ -305,27 +305,78 @@ private fun HairaCore(modifier:Modifier=Modifier){
 
 @Composable
 private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,chatError:String?,streamingPreview:String,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit,recognizedSpeech:String?,onSpeechConsumed:()->Unit,onRenameClick:()->Unit,onDeleteChat:()->Unit,onStopSpeak:()->Unit){
- var draft by remember{mutableStateOf("")};var chatQuery by remember{mutableStateOf("")}
+ var draft by remember{mutableStateOf("")}
+ var chatQuery by remember{mutableStateOf("")}
+ var showHistory by remember{mutableStateOf(false)}
  LaunchedEffect(recognizedSpeech,isGenerating){val phrase=recognizedSpeech;if(!phrase.isNullOrBlank()&&!isGenerating){onSend(phrase);onSpeechConsumed()}}
- Column(modifier.fillMaxSize().imePadding().background(Brush.verticalGradient(listOf(Night,Color(0xFF13070B),Night))).padding(horizontal=16.dp,vertical=12.dp)){
-  Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("HAIRA",color=Color.White,fontSize=25.sp,fontWeight=FontWeight.Black,letterSpacing=2.sp);Text("PERSONAL AI SYSTEM  •  v2.0",color=Cyan,fontSize=9.sp,letterSpacing=1.5.sp)};TextButton(onClick={chatQuery="";onNew()}){Text("+ NEW CHAT",color=Cyan,fontSize=11.sp,fontWeight=FontWeight.Bold)}}
-  Card(Modifier.fillMaxWidth().padding(top=8.dp,bottom=10.dp),colors=CardDefaults.cardColors(containerColor=Panel),border=androidx.compose.foundation.BorderStroke(1.dp,Cyan.copy(alpha=0.24f))){
-   Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){HairaCore(Modifier.size(156.dp));Column(Modifier.weight(1f).padding(start=12.dp)){Text(if(engineStatus=="Model ready" || engineStatus.startsWith("Online")) "AI CORE ONLINE" else "AI CORE SETUP",color=if(engineStatus=="Model ready" || engineStatus.startsWith("Online")) Cyan else Warning,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.2.sp);Text("Your AI. Your command.",color=Color.White,fontSize=19.sp,fontWeight=FontWeight.Bold);Text(engineStatus,color=Muted,fontSize=11.sp,modifier=Modifier.padding(top=5.dp));if(engineError!=null)Text(engineError,color=Warning,fontSize=10.sp,maxLines=3);Text("VOICE  •  INTELLIGENCE  •  CONTROL",color=Muted,fontSize=8.sp,letterSpacing=0.6.sp,modifier=Modifier.padding(top=8.dp))}}
+ Column(modifier.fillMaxSize().imePadding().background(Color(0xFF050505)).padding(horizontal=16.dp,vertical=10.dp)){
+  Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
+   TextButton(onClick={showHistory=!showHistory},contentPadding=PaddingValues(horizontal=8.dp)){Text("☰",color=Color.White,fontSize=22.sp)}
+   Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally){
+    Text("HAIRA",color=Color.White,fontSize=19.sp,fontWeight=FontWeight.Bold,letterSpacing=2.sp)
+    Text(if(isGenerating)"GENERATING" else engineStatus.uppercase(),color=Color(0xFF999999),fontSize=8.sp,letterSpacing=1.sp,maxLines=1)
+   }
+   TextButton(onClick=onNew,contentPadding=PaddingValues(horizontal=8.dp)){Text("+",color=Color.White,fontSize=25.sp)}
   }
-  if(chats.isNotEmpty()){
-   Row(verticalAlignment=Alignment.CenterVertically){Text("CONVERSATIONS",color=Muted,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp,modifier=Modifier.weight(1f));TextButton(onClick=onRenameClick,enabled=chatId!=0L){Text("RENAME",color=Cyan,fontSize=9.sp)};TextButton(onClick=onDeleteChat,enabled=chatId!=0L){Text("DELETE",color=Warning,fontSize=9.sp)}}
-   OutlinedTextField(chatQuery,{chatQuery=it},Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("Search conversations")})
-   val visibleChats=chats.filter{it.title.contains(chatQuery,ignoreCase=true)}
-   if(visibleChats.isEmpty())Text("No matching conversations",color=Muted,fontSize=11.sp) else LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=7.dp)){items(visibleChats,key={it.id}){chat->FilterChip(selected=chat.id==chatId,onClick={onPick(chat.id)},label={Text((if(chat.title=="New conversation")"Chat "+(chats.indexOf(chat)+1) else chat.title).ifBlank{"Untitled"}.take(24),maxLines=1)})}}
-  }else{Row(verticalAlignment=Alignment.CenterVertically){Text("LIVE CONVERSATION",color=Muted,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp);Spacer(Modifier.weight(1f));Text("ENCRYPTED LOCAL HISTORY",color=Muted,fontSize=8.sp)}}
-  LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(vertical=8.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
-   if(chatError!=null)item{Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Color(0xFF2A1117)),border=androidx.compose.foundation.BorderStroke(1.dp,Warning.copy(alpha=0.55f))){Column(Modifier.padding(12.dp)){Text("HAIRA COULD NOT REPLY",color=Warning,fontSize=10.sp,fontWeight=FontWeight.Bold);Text(chatError,color=Color.White,fontSize=12.sp,modifier=Modifier.padding(top=4.dp));Text("Open System → Online AI Provider to check the HTTPS gateway, model name and API key. If no provider is enabled, the local model must be ready.",color=Muted,fontSize=10.sp,modifier=Modifier.padding(top=5.dp))}}}
-   if(messages.isEmpty())item{Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Panel.copy(alpha=0.72f))){Column(Modifier.padding(16.dp)){Text("READY WHEN YOU ARE",color=Cyan,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp);Text("Start a conversation with HAIRA.",color=Color.White,fontSize=16.sp,fontWeight=FontWeight.SemiBold,modifier=Modifier.padding(top=5.dp));Text("Ask a question or use the microphone to speak.",color=Muted,fontSize=12.sp,modifier=Modifier.padding(top=4.dp))}}}
-   items(messages,key={it.id}){m->Column(Modifier.fillMaxWidth(),horizontalAlignment=if(m.role=="user")Alignment.End else Alignment.Start){Text(if(m.role=="user")"YOU" else "HAIRA",color=Cyan,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp,modifier=Modifier.padding(horizontal=6.dp,vertical=3.dp));Card(Modifier.fillMaxWidth(0.92f),colors=CardDefaults.cardColors(containerColor=if(m.role=="user")Color(0xFF32151D)else Panel),border=androidx.compose.foundation.BorderStroke(1.dp,Cyan.copy(alpha=0.12f))){Column(Modifier.padding(12.dp)){Text(m.content,modifier=if(m.role=="assistant")Modifier.testTag("assistant-response")else Modifier,color=Color.White);if(m.role=="assistant")Row{TextButton(onClick={onSpeak(m.content)}){Text("READ ALOUD",color=Cyan,fontSize=9.sp)};TextButton(onClick=onStopSpeak){Text("STOP VOICE",color=Muted,fontSize=9.sp)}}}}}}
-   if(isGenerating){ item { if(streamingPreview.isBlank()) Text("HAIRA IS THINKING…",color=Cyan,fontSize=11.sp,fontWeight=FontWeight.Bold) else Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.Start){Text("HAIRA",color=Cyan,fontSize=9.sp,fontWeight=FontWeight.Bold);Card(Modifier.fillMaxWidth(0.92f),colors=CardDefaults.cardColors(containerColor=Panel),border=androidx.compose.foundation.BorderStroke(1.dp,Cyan.copy(alpha=0.22f))){Text(streamingPreview+" ▌",Modifier.padding(12.dp),color=Color.White)}} } }
+  if(showHistory){
+   Card(Modifier.fillMaxWidth().padding(bottom=8.dp),colors=CardDefaults.cardColors(containerColor=Color(0xFF171717))){
+    Column(Modifier.padding(10.dp)){
+     Row(verticalAlignment=Alignment.CenterVertically){Text("Chat history",Modifier.weight(1f),color=Color.White,fontWeight=FontWeight.SemiBold);TextButton(onClick={showHistory=false}){Text("Close")}}
+     OutlinedTextField(chatQuery,{chatQuery=it},Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("Search chats")})
+     val visible=chats.filter{it.title.contains(chatQuery,ignoreCase=true)}
+     if(visible.isEmpty())Text("No conversations found",color=Color.Gray,fontSize=12.sp,modifier=Modifier.padding(8.dp))
+     else LazyColumn(Modifier.heightIn(max=180.dp)){items(visible,key={it.id}){chat->TextButton(onClick={onPick(chat.id);showHistory=false},modifier=Modifier.fillMaxWidth()){Text(chat.title.ifBlank{"New chat"},color=if(chat.id==chatId)Color.White else Color.LightGray,maxLines=1)}}}
+     if(chatId!=0L)Row{TextButton(onClick=onRenameClick){Text("Rename")};TextButton(onClick=onDeleteChat){Text("Delete",color=Color(0xFFFF7777))}}
+    }
+   }
   }
-  Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Panel),border=androidx.compose.foundation.BorderStroke(1.dp,Cyan.copy(alpha=0.28f))){Row(Modifier.padding(7.dp),verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onMic){Text("MIC",color=Cyan,fontWeight=FontWeight.Bold,fontSize=10.sp)};OutlinedTextField(value=draft,onValueChange={draft=it},modifier=Modifier.weight(1f).heightIn(min=54.dp,max=112.dp),placeholder={Text("Message HAIRA…")},keyboardOptions=KeyboardOptions(capitalization=KeyboardCapitalization.Sentences),minLines=1,maxLines=3,enabled=!isGenerating);TextButton(enabled=!isGenerating,onClick={val v=draft.trim();if(v.isNotEmpty()){onSend(v);draft=""}}){Text(if(isGenerating)"…" else "SEND",color=Cyan,fontWeight=FontWeight.Bold,fontSize=10.sp)}}}
-  Text("Speech recognition availability depends on your Android language pack.",color=Muted,fontSize=8.sp,modifier=Modifier.padding(top=5.dp))
+  if(messages.isEmpty() && streamingPreview.isBlank() && chatError==null){
+   Spacer(Modifier.weight(1f))
+   Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally){
+    HairaCore(Modifier.size(88.dp))
+    Text("What can I help with?",color=Color.White,fontSize=23.sp,fontWeight=FontWeight.SemiBold,modifier=Modifier.padding(top=22.dp))
+    Text("Ask anything. Let's figure it out together.",color=Color(0xFF999999),fontSize=12.sp,modifier=Modifier.padding(top=7.dp))
+    Row(Modifier.fillMaxWidth().padding(top=24.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+     listOf("Explain something","Write for me").forEach{label->AssistChip(onClick={draft=label+" "},label={Text(label,color=Color.White)},colors=AssistChipDefaults.assistChipColors(containerColor=Color(0xFF171717)))}
+    }
+    Row(Modifier.fillMaxWidth().padding(top=8.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+     listOf("Brainstorm ideas","Help me learn").forEach{label->AssistChip(onClick={draft=label+" "},label={Text(label,color=Color.White)},colors=AssistChipDefaults.assistChipColors(containerColor=Color(0xFF171717)))}
+    }
+   }
+   Spacer(Modifier.weight(1f))
+  }else{
+   LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(vertical=12.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
+    if(chatError!=null)item{Card(colors=CardDefaults.cardColors(containerColor=Color(0xFF241316))){Text(chatError,color=Color(0xFFFFB4B4),modifier=Modifier.padding(12.dp))}}
+    items(messages,key={it.id}){m->
+     Column(Modifier.fillMaxWidth(),horizontalAlignment=if(m.role=="user")Alignment.End else Alignment.Start){
+      Text(if(m.role=="user")"YOU" else "HAIRA",color=Color(0xFF999999),fontSize=9.sp,letterSpacing=1.sp,modifier=Modifier.padding(bottom=4.dp))
+      Card(colors=CardDefaults.cardColors(containerColor=if(m.role=="user")Color(0xFF242424) else Color(0xFF111111))){
+       Column(Modifier.padding(12.dp)){
+        Text(m.content,modifier=if(m.role=="assistant")Modifier.testTag("assistant-response") else Modifier,color=Color.White)
+        if(m.role=="assistant")Row{TextButton(onClick={onSpeak(m.content)}){Text("Read aloud")};TextButton(onClick=onStopSpeak){Text("Stop voice")}}
+       }
+      }
+     }
+    }
+    if(isGenerating)item{
+     Column(Modifier.fillMaxWidth()){
+      Text("HAIRA",color=Color(0xFF999999),fontSize=9.sp)
+      if(streamingPreview.isBlank())Text("Thinking…",color=Color(0xFFB8B8B8),modifier=Modifier.padding(top=5.dp))
+      else Text(streamingPreview+" ▌",color=Color.White,modifier=Modifier.padding(top=5.dp))
+     }
+    }
+   }
+  }
+  Row(Modifier.fillMaxWidth().padding(top=8.dp),verticalAlignment=Alignment.CenterVertically){
+   Card(Modifier.weight(1f),colors=CardDefaults.cardColors(containerColor=Color(0xFF191919)),shape=MaterialTheme.shapes.extraLarge){
+    Row(Modifier.padding(horizontal=7.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically){
+     TextButton(onClick=onMic,contentPadding=PaddingValues(horizontal=7.dp)){Text("🎙",fontSize=17.sp)}
+     OutlinedTextField(value=draft,onValueChange={draft=it},modifier=Modifier.weight(1f).heightIn(min=48.dp,max=112.dp),placeholder={Text("Message HAIRA",color=Color(0xFF888888))},keyboardOptions=KeyboardOptions(capitalization=KeyboardCapitalization.Sentences),minLines=1,maxLines=4,enabled=!isGenerating)
+     TextButton(enabled=!isGenerating && draft.isNotBlank(),onClick={val value=draft.trim();if(value.isNotEmpty()){onSend(value);draft=""}},contentPadding=PaddingValues(horizontal=8.dp)){Text(if(isGenerating)"…" else "↑",color=Color.White,fontSize=23.sp)}
+    }
+   }
+  }
+  if(engineError!=null)Text("Local engine: "+engineError,color=Color(0xFFFFB66D),fontSize=9.sp,modifier=Modifier.padding(top=4.dp))
  }
 }
 
@@ -416,9 +467,21 @@ private fun ProviderSettingsCard(
         Column(Modifier.padding(12.dp)) {
             Text("ONLINE AI PROVIDER", color=Cyan, fontWeight=FontWeight.Bold)
             Text(
-                "Optional OpenAI-compatible gateway. FreeLLMAPI and OmniRoute are self-hosted server projects, not hosted inference APIs. Deploy one first, connect eligible provider accounts/keys on that server, then enter its HTTPS endpoint and unified key here.",
+                "Use a hosted OpenAI-compatible provider or your own gateway. Groq presets are available below; add your own key and check the provider's free-tier limits.",
                 color=Muted, fontSize=11.sp, modifier=Modifier.padding(top=5.dp)
             )
+            Row(horizontalArrangement=Arrangement.spacedBy(6.dp), modifier=Modifier.padding(top=8.dp)) {
+                FilterChip(
+                    selected = baseUrl == "https://api.groq.com/openai/v1" && model == "openai/gpt-oss-20b",
+                    onClick = { baseUrl = "https://api.groq.com/openai/v1"; model = "openai/gpt-oss-20b" },
+                    label = { Text("Groq Fast • 20B") }
+                )
+                FilterChip(
+                    selected = baseUrl == "https://api.groq.com/openai/v1" && model == "openai/gpt-oss-120b",
+                    onClick = { baseUrl = "https://api.groq.com/openai/v1"; model = "openai/gpt-oss-120b" },
+                    label = { Text("Groq Smart • 120B") }
+                )
+            }
             OutlinedTextField(
                 value=baseUrl, onValueChange={baseUrl=it},
                 modifier=Modifier.fillMaxWidth().padding(top=8.dp),
