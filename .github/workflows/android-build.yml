@@ -70,8 +70,9 @@ jobs:
             LOGCAT_PID=$!
             trap 'kill "$LOGCAT_PID" 2>/dev/null || true' EXIT
             echo "Preflight install: surface the exact package-manager failure before Android Test Orchestrator runs"
-            adb install -r -g app/build/outputs/apk/debug/app-debug.apk || { echo "APK install preflight failed; collecting package manager and device diagnostics"; adb shell df -h /data || true; adb shell dumpsys diskstats || true; adb logcat -d -t 3000 || true; exit 1; }
-            gradle --no-daemon connectedDebugAndroidTest
+            timeout 600s adb install --no-streaming -r -g app/build/outputs/apk/debug/app-debug.apk || { echo "APK install preflight failed or timed out; collecting package manager and device diagnostics"; adb shell df -h /data || true; adb shell dumpsys diskstats || true; adb logcat -d -t 3000 || true; exit 1; }
+            adb shell pm path com.haira.ai
+            gradle --no-daemon connectedDebugAndroidTest -x installDebug
       - name: Upload emulator diagnostics
         if: always()
         uses: actions/upload-artifact@v4
