@@ -589,7 +589,7 @@ private fun BuilderScreen(modifier:Modifier,appName:String,onAppName:(String)->U
   Text("Example: com.example.myapp",color=Muted,fontSize=11.sp,modifier=Modifier.padding(top=5.dp))
   OutlinedTextField(buildRepoUrl,{buildRepoUrl=it},Modifier.fillMaxWidth().padding(top=10.dp),label={Text("GitHub repository URL")},singleLine=true,placeholder={Text("https://github.com/owner/repository")})
   Button(onClick={onBuildApk(appName,packageId,buildRepoUrl)},enabled=githubTokenConfigured&&buildRepoUrl.startsWith("https://github.com/")&&appName.isNotBlank()&&ProjectZipGenerator.isValidPackageId(packageId),modifier=Modifier.fillMaxWidth().padding(top=12.dp)){Text("Build APK in Cloud")}
-  Text(if(githubTokenConfigured)"Uses your encrypted GitHub token to upload the project and start a remote APK build." else "Save a GitHub token in Actions first. It needs Contents: write, Actions: write and Workflows: write permissions.",color=if(githubTokenConfigured)Muted else Warning,fontSize=11.sp,modifier=Modifier.padding(top=8.dp))
+  Text(if(githubTokenConfigured)"Uses your encrypted GitHub token to upload the project and start a remote APK build." else "Save a fine-grained GitHub token in Actions first. It needs Contents: write and Actions: write permissions.",color=if(githubTokenConfigured)Muted else Warning,fontSize=11.sp,modifier=Modifier.padding(top=8.dp))
   OutlinedButton(onClick={onExport(appName,packageId)},enabled=appName.isNotBlank()&&ProjectZipGenerator.isValidPackageId(packageId),modifier=Modifier.fillMaxWidth().padding(top=8.dp)){Text("Export Android Studio ZIP")}
   Text("Cloud builds run on GitHub-hosted machines; build availability depends on your GitHub Actions quota.",color=Muted,fontSize=10.sp,modifier=Modifier.padding(top=8.dp))
  }
