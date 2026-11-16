@@ -19,6 +19,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,6 +85,7 @@ fun HairaApp(){
  var engineError by remember{mutableStateOf<String?>(null)}
  var bundledVerified by remember{mutableStateOf(false)}
  var isGenerating by remember{mutableStateOf(false)}
+ var chatError by remember{mutableStateOf<String?>(null)}
  val backendAvailable = remember { LocalInference.backendAvailable }
  var addMemory by remember{mutableStateOf(false)}
  var memoryDraft by remember{mutableStateOf("")}
@@ -152,11 +159,11 @@ fun HairaApp(){
 
  MaterialTheme(colorScheme=darkColorScheme(background=Night,surface=Panel,primary=Cyan)){
   Scaffold(containerColor=Night,bottomBar={NavigationBar(containerColor=Panel){listOf("HAIRA","Studio","Actions","Builder","System").forEach{item->
-   NavigationBarItem(selected=tab==item,onClick={tab=item},icon={Text(item.take(1),color=Cyan,fontWeight=FontWeight.Bold)},label={Text(item,fontSize=10.sp)})
+   NavigationBarItem(selected=tab==item,onClick={tab=item},icon={Icon(imageVector=when(item){ "HAIRA"->Icons.Filled.Home; "Studio"->Icons.Filled.MusicNote; "Actions"->Icons.Filled.Search; "Builder"->Icons.Filled.Build; else->Icons.Filled.Settings },contentDescription=item,tint=Cyan)},label={Text(item,fontSize=11.sp,fontWeight=if(tab==item)FontWeight.Bold else FontWeight.Medium)})
   }}}){padding->
    when(tab){
     "HAIRA"->ChatScreen(Modifier.padding(padding),chats,chatId,dao.messages(chatId).collectAsState(initial=emptyList()).value,
-     engineStatus=providerConfig?.takeIf{it.enabled}?.let{"Online • "+it.model} ?: engineStatus,engineError=engineError,isGenerating=isGenerating,
+     engineStatus=providerConfig?.takeIf{it.enabled}?.let{"Online • "+it.model} ?: engineStatus,engineError=engineError,isGenerating=isGenerating,chatError=chatError,
      onPick={chatId=it},onNew={scope.launch{chatId=dao.addConversation(ConversationEntity(title="Chat "+(chats.size+1)))}},
      onRenameClick={renameDraft=chats.firstOrNull{it.id==chatId}?.title.orEmpty();renameChatVisible=true},
      onDeleteChat={scope.launch{dao.deleteConversation(chatId);chatId=0L}},
@@ -165,6 +172,7 @@ fun HairaApp(){
       if(!isGenerating){
        scope.launch{
         isGenerating=true
+        chatError=null
         try {
          val activeId=if(chatId==0L)dao.addConversation(ConversationEntity(title=text.take(32))) else chatId
          chatId=activeId
@@ -180,19 +188,27 @@ fun HairaApp(){
          val prompt="<|im_start|>system\n"+systemPrompt+"\n<|im_end|>\n"+historyPrompt+"\n<|im_start|>assistant\n"
          val activeRemote=providerConfig?.takeIf{it.enabled}
          val answer=if(activeRemote!=null){
-          OpenAiCompatibleClient.complete(activeRemote,buildList{
-           add(RemoteChatMessage("system",systemPrompt))
-           history.forEach{message->add(RemoteChatMessage(if(message.role=="assistant")"assistant" else "user",message.content.take(1400)))}
-          })
+          runCatching {
+           OpenAiCompatibleClient.complete(activeRemote,buildList{
+            add(RemoteChatMessage("system",systemPrompt))
+            history.forEach{message->add(RemoteChatMessage(if(message.role=="assistant")"assistant" else "user",message.content.take(1400)))}
+           })
+          }.getOrElse { remoteFailure ->
+           if(engineStatus=="Model ready" && LocalInference.isLoaded) {
+            android.util.Log.w("HAIRA-CHAT","Remote provider failed; trying the ready local model",remoteFailure)
+            withContext(Dispatchers.Default){LocalInference.generate(prompt)}
+             ?: throw IllegalStateException("Online provider failed (${remoteFailure.message ?: "unknown error"}) and the local model returned no response.")
+           } else throw remoteFailure
+          }
          }else{
-          if(engineStatus!="Model ready") error(engineError ?: "The local AI model is not ready yet.")
+          if(engineStatus!="Model ready" || !LocalInference.isLoaded) error(engineError ?: "No AI engine is ready. Connect and enable an online provider in System settings, or wait for the local model to finish loading.")
           withContext(Dispatchers.Default){LocalInference.generate(prompt)}
          }
          if(!answer.isNullOrBlank())dao.addMessage(MessageEntity(conversationId=activeId,role="assistant",content=answer.trim()))
          else error("The model returned an empty response.")
         } catch(e:Exception) {
          android.util.Log.e("HAIRA-CHAT","Message generation failed",e)
-         Toast.makeText(context,e.message ?: "AI response failed.",Toast.LENGTH_LONG).show()
+         chatError=e.message ?: "AI response failed. Check your provider and model settings."
         } finally { isGenerating=false }
        }
       }
@@ -285,13 +301,13 @@ private fun HairaCore(modifier:Modifier=Modifier){
 }
 
 @Composable
-private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit,recognizedSpeech:String?,onSpeechConsumed:()->Unit,onRenameClick:()->Unit,onDeleteChat:()->Unit,onStopSpeak:()->Unit){
+private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,chatError:String?,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit,recognizedSpeech:String?,onSpeechConsumed:()->Unit,onRenameClick:()->Unit,onDeleteChat:()->Unit,onStopSpeak:()->Unit){
  var draft by remember{mutableStateOf("")};var chatQuery by remember{mutableStateOf("")}
  LaunchedEffect(recognizedSpeech,isGenerating){val phrase=recognizedSpeech;if(!phrase.isNullOrBlank()&&!isGenerating){onSend(phrase);onSpeechConsumed()}}
  Column(modifier.fillMaxSize().imePadding().background(Brush.verticalGradient(listOf(Night,Color(0xFF13070B),Night))).padding(horizontal=16.dp,vertical=12.dp)){
   Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("HAIRA",color=Color.White,fontSize=25.sp,fontWeight=FontWeight.Black,letterSpacing=2.sp);Text("PERSONAL AI SYSTEM  •  v2.0",color=Cyan,fontSize=9.sp,letterSpacing=1.5.sp)};TextButton(onClick={chatQuery="";onNew()}){Text("+ NEW CHAT",color=Cyan,fontSize=11.sp,fontWeight=FontWeight.Bold)}}
   Card(Modifier.fillMaxWidth().padding(top=8.dp,bottom=10.dp),colors=CardDefaults.cardColors(containerColor=Panel),border=androidx.compose.foundation.BorderStroke(1.dp,Cyan.copy(alpha=0.24f))){
-   Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){HairaCore(Modifier.size(142.dp));Column(Modifier.weight(1f).padding(start=12.dp)){Text("SYSTEM ONLINE",color=Cyan,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.2.sp);Text("Your AI. Your command.",color=Color.White,fontSize=17.sp,fontWeight=FontWeight.Bold);Text(engineStatus,color=Muted,fontSize=11.sp,modifier=Modifier.padding(top=5.dp));if(engineError!=null)Text(engineError,color=Warning,fontSize=10.sp,maxLines=2);Text("VOICE  •  INTELLIGENCE  •  CONTROL",color=Muted,fontSize=8.sp,letterSpacing=0.6.sp,modifier=Modifier.padding(top=8.dp))}}
+   Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){HairaCore(Modifier.size(156.dp));Column(Modifier.weight(1f).padding(start=12.dp)){Text(if(engineStatus=="Model ready" || engineStatus.startsWith("Online")) "AI CORE ONLINE" else "AI CORE SETUP",color=if(engineStatus=="Model ready" || engineStatus.startsWith("Online")) Cyan else Warning,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.2.sp);Text("Your AI. Your command.",color=Color.White,fontSize=19.sp,fontWeight=FontWeight.Bold);Text(engineStatus,color=Muted,fontSize=11.sp,modifier=Modifier.padding(top=5.dp));if(engineError!=null)Text(engineError,color=Warning,fontSize=10.sp,maxLines=3);Text("VOICE  •  INTELLIGENCE  •  CONTROL",color=Muted,fontSize=8.sp,letterSpacing=0.6.sp,modifier=Modifier.padding(top=8.dp))}}
   }
   if(chats.isNotEmpty()){
    Row(verticalAlignment=Alignment.CenterVertically){Text("CONVERSATIONS",color=Muted,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp,modifier=Modifier.weight(1f));TextButton(onClick=onRenameClick,enabled=chatId!=0L){Text("RENAME",color=Cyan,fontSize=9.sp)};TextButton(onClick=onDeleteChat,enabled=chatId!=0L){Text("DELETE",color=Warning,fontSize=9.sp)}}
@@ -300,11 +316,12 @@ private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:L
    if(visibleChats.isEmpty())Text("No matching conversations",color=Muted,fontSize=11.sp) else LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=7.dp)){items(visibleChats,key={it.id}){chat->FilterChip(selected=chat.id==chatId,onClick={onPick(chat.id)},label={Text((if(chat.title=="New conversation")"Chat "+(chats.indexOf(chat)+1) else chat.title).ifBlank{"Untitled"}.take(24),maxLines=1)})}}
   }else{Row(verticalAlignment=Alignment.CenterVertically){Text("LIVE CONVERSATION",color=Muted,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp);Spacer(Modifier.weight(1f));Text("ENCRYPTED LOCAL HISTORY",color=Muted,fontSize=8.sp)}}
   LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(vertical=8.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
+   if(chatError!=null)item{Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Color(0xFF2A1117)),border=androidx.compose.foundation.BorderStroke(1.dp,Warning.copy(alpha=0.55f))){Column(Modifier.padding(12.dp)){Text("HAIRA COULD NOT REPLY",color=Warning,fontSize=10.sp,fontWeight=FontWeight.Bold);Text(chatError,color=Color.White,fontSize=12.sp,modifier=Modifier.padding(top=4.dp));Text("Open System → Online AI Provider to check the HTTPS gateway, model name and API key. If no provider is enabled, the local model must be ready.",color=Muted,fontSize=10.sp,modifier=Modifier.padding(top=5.dp))}}}
    if(messages.isEmpty())item{Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Panel.copy(alpha=0.72f))){Column(Modifier.padding(16.dp)){Text("READY WHEN YOU ARE",color=Cyan,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp);Text("Start a conversation with HAIRA.",color=Color.White,fontSize=16.sp,fontWeight=FontWeight.SemiBold,modifier=Modifier.padding(top=5.dp));Text("Ask a question or use the microphone to speak.",color=Muted,fontSize=12.sp,modifier=Modifier.padding(top=4.dp))}}}
    items(messages,key={it.id}){m->Column(Modifier.fillMaxWidth(),horizontalAlignment=if(m.role=="user")Alignment.End else Alignment.Start){Text(if(m.role=="user")"YOU" else "HAIRA",color=Cyan,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp,modifier=Modifier.padding(horizontal=6.dp,vertical=3.dp));Card(Modifier.fillMaxWidth(0.92f),colors=CardDefaults.cardColors(containerColor=if(m.role=="user")Color(0xFF32151D)else Panel),border=androidx.compose.foundation.BorderStroke(1.dp,Cyan.copy(alpha=0.12f))){Column(Modifier.padding(12.dp)){Text(m.content,modifier=if(m.role=="assistant")Modifier.testTag("assistant-response")else Modifier,color=Color.White);if(m.role=="assistant")Row{TextButton(onClick={onSpeak(m.content)}){Text("READ ALOUD",color=Cyan,fontSize=9.sp)};TextButton(onClick=onStopSpeak){Text("STOP VOICE",color=Muted,fontSize=9.sp)}}}}}}
    if(isGenerating)item{Text("HAIRA IS THINKING…",color=Cyan,fontSize=11.sp,fontWeight=FontWeight.Bold)}
   }
-  Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Panel),border=androidx.compose.foundation.BorderStroke(1.dp,Cyan.copy(alpha=0.28f))){Row(Modifier.padding(7.dp),verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onMic){Text("MIC",color=Cyan,fontWeight=FontWeight.Bold,fontSize=10.sp)};OutlinedTextField(draft,{draft=it},Modifier.weight(1f),placeholder={Text("Message HAIRA…")},keyboardOptions=KeyboardOptions(capitalization=KeyboardCapitalization.Sentences),maxLines=4,enabled=!isGenerating);TextButton(enabled=!isGenerating,onClick={val v=draft.trim();if(v.isNotEmpty()){onSend(v);draft=""}}){Text(if(isGenerating)"…" else "SEND",color=Cyan,fontWeight=FontWeight.Bold,fontSize=10.sp)}}}
+  Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Panel),border=androidx.compose.foundation.BorderStroke(1.dp,Cyan.copy(alpha=0.28f))){Row(Modifier.padding(7.dp),verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onMic){Text("MIC",color=Cyan,fontWeight=FontWeight.Bold,fontSize=10.sp)};OutlinedTextField(value=draft,onValueChange={draft=it},modifier=Modifier.weight(1f).heightIn(min=54.dp,max=112.dp),placeholder={Text("Message HAIRA…")},keyboardOptions=KeyboardOptions(capitalization=KeyboardCapitalization.Sentences),minLines=1,maxLines=3,enabled=!isGenerating);TextButton(enabled=!isGenerating,onClick={val v=draft.trim();if(v.isNotEmpty()){onSend(v);draft=""}}){Text(if(isGenerating)"…" else "SEND",color=Cyan,fontWeight=FontWeight.Bold,fontSize=10.sp)}}}
   Text("Speech recognition availability depends on your Android language pack.",color=Muted,fontSize=8.sp,modifier=Modifier.padding(top=5.dp))
  }
 }
