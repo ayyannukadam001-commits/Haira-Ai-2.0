@@ -85,6 +85,7 @@ fun HairaApp(){
  var engineError by remember{mutableStateOf<String?>(null)}
  var bundledVerified by remember{mutableStateOf(false)}
  var isGenerating by remember{mutableStateOf(false)}
+ var chatError by remember{mutableStateOf<String?>(null)}
  val backendAvailable = remember { LocalInference.backendAvailable }
  var addMemory by remember{mutableStateOf(false)}
  var memoryDraft by remember{mutableStateOf("")}
@@ -162,7 +163,7 @@ fun HairaApp(){
   }}}){padding->
    when(tab){
     "HAIRA"->ChatScreen(Modifier.padding(padding),chats,chatId,dao.messages(chatId).collectAsState(initial=emptyList()).value,
-     engineStatus=providerConfig?.takeIf{it.enabled}?.let{"Online • "+it.model} ?: engineStatus,engineError=engineError,isGenerating=isGenerating,
+     engineStatus=providerConfig?.takeIf{it.enabled}?.let{"Online • "+it.model} ?: engineStatus,engineError=engineError,isGenerating=isGenerating,chatError=chatError,
      onPick={chatId=it},onNew={scope.launch{chatId=dao.addConversation(ConversationEntity(title="Chat "+(chats.size+1)))}},
      onRenameClick={renameDraft=chats.firstOrNull{it.id==chatId}?.title.orEmpty();renameChatVisible=true},
      onDeleteChat={scope.launch{dao.deleteConversation(chatId);chatId=0L}},
@@ -171,6 +172,7 @@ fun HairaApp(){
       if(!isGenerating){
        scope.launch{
         isGenerating=true
+        chatError=null
         try {
          val activeId=if(chatId==0L)dao.addConversation(ConversationEntity(title=text.take(32))) else chatId
          chatId=activeId
@@ -186,19 +188,27 @@ fun HairaApp(){
          val prompt="<|im_start|>system\n"+systemPrompt+"\n<|im_end|>\n"+historyPrompt+"\n<|im_start|>assistant\n"
          val activeRemote=providerConfig?.takeIf{it.enabled}
          val answer=if(activeRemote!=null){
-          OpenAiCompatibleClient.complete(activeRemote,buildList{
-           add(RemoteChatMessage("system",systemPrompt))
-           history.forEach{message->add(RemoteChatMessage(if(message.role=="assistant")"assistant" else "user",message.content.take(1400)))}
-          })
+          runCatching {
+           OpenAiCompatibleClient.complete(activeRemote,buildList{
+            add(RemoteChatMessage("system",systemPrompt))
+            history.forEach{message->add(RemoteChatMessage(if(message.role=="assistant")"assistant" else "user",message.content.take(1400)))}
+           })
+          }.getOrElse { remoteFailure ->
+           if(engineStatus=="Model ready" && LocalInference.isLoaded) {
+            android.util.Log.w("HAIRA-CHAT","Remote provider failed; trying the ready local model",remoteFailure)
+            withContext(Dispatchers.Default){LocalInference.generate(prompt)}
+             ?: throw IllegalStateException("Online provider failed (${remoteFailure.message ?: "unknown error"}) and the local model returned no response.")
+           } else throw remoteFailure
+          }
          }else{
-          if(engineStatus!="Model ready") error(engineError ?: "The local AI model is not ready yet.")
+          if(engineStatus!="Model ready" || !LocalInference.isLoaded) error(engineError ?: "No AI engine is ready. Connect and enable an online provider in System settings, or wait for the local model to finish loading.")
           withContext(Dispatchers.Default){LocalInference.generate(prompt)}
          }
          if(!answer.isNullOrBlank())dao.addMessage(MessageEntity(conversationId=activeId,role="assistant",content=answer.trim()))
          else error("The model returned an empty response.")
         } catch(e:Exception) {
          android.util.Log.e("HAIRA-CHAT","Message generation failed",e)
-         Toast.makeText(context,e.message ?: "AI response failed.",Toast.LENGTH_LONG).show()
+         chatError=e.message ?: "AI response failed. Check your provider and model settings."
         } finally { isGenerating=false }
        }
       }
@@ -291,7 +301,7 @@ private fun HairaCore(modifier:Modifier=Modifier){
 }
 
 @Composable
-private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit,recognizedSpeech:String?,onSpeechConsumed:()->Unit,onRenameClick:()->Unit,onDeleteChat:()->Unit,onStopSpeak:()->Unit){
+private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,chatError:String?,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit,recognizedSpeech:String?,onSpeechConsumed:()->Unit,onRenameClick:()->Unit,onDeleteChat:()->Unit,onStopSpeak:()->Unit){
  var draft by remember{mutableStateOf("")};var chatQuery by remember{mutableStateOf("")}
  LaunchedEffect(recognizedSpeech,isGenerating){val phrase=recognizedSpeech;if(!phrase.isNullOrBlank()&&!isGenerating){onSend(phrase);onSpeechConsumed()}}
  Column(modifier.fillMaxSize().imePadding().background(Brush.verticalGradient(listOf(Night,Color(0xFF13070B),Night))).padding(horizontal=16.dp,vertical=12.dp)){
@@ -306,6 +316,7 @@ private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:L
    if(visibleChats.isEmpty())Text("No matching conversations",color=Muted,fontSize=11.sp) else LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=7.dp)){items(visibleChats,key={it.id}){chat->FilterChip(selected=chat.id==chatId,onClick={onPick(chat.id)},label={Text((if(chat.title=="New conversation")"Chat "+(chats.indexOf(chat)+1) else chat.title).ifBlank{"Untitled"}.take(24),maxLines=1)})}}
   }else{Row(verticalAlignment=Alignment.CenterVertically){Text("LIVE CONVERSATION",color=Muted,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp);Spacer(Modifier.weight(1f));Text("ENCRYPTED LOCAL HISTORY",color=Muted,fontSize=8.sp)}}
   LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(vertical=8.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
+   if(chatError!=null)item{Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Color(0xFF2A1117)),border=androidx.compose.foundation.BorderStroke(1.dp,Warning.copy(alpha=0.55f))){Column(Modifier.padding(12.dp)){Text("HAIRA COULD NOT REPLY",color=Warning,fontSize=10.sp,fontWeight=FontWeight.Bold);Text(chatError,color=Color.White,fontSize=12.sp,modifier=Modifier.padding(top=4.dp));Text("Open System → Online AI Provider to check the HTTPS gateway, model name and API key. If no provider is enabled, the local model must be ready.",color=Muted,fontSize=10.sp,modifier=Modifier.padding(top=5.dp))}}}
    if(messages.isEmpty())item{Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Panel.copy(alpha=0.72f))){Column(Modifier.padding(16.dp)){Text("READY WHEN YOU ARE",color=Cyan,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp);Text("Start a conversation with HAIRA.",color=Color.White,fontSize=16.sp,fontWeight=FontWeight.SemiBold,modifier=Modifier.padding(top=5.dp));Text("Ask a question or use the microphone to speak.",color=Muted,fontSize=12.sp,modifier=Modifier.padding(top=4.dp))}}}
    items(messages,key={it.id}){m->Column(Modifier.fillMaxWidth(),horizontalAlignment=if(m.role=="user")Alignment.End else Alignment.Start){Text(if(m.role=="user")"YOU" else "HAIRA",color=Cyan,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp,modifier=Modifier.padding(horizontal=6.dp,vertical=3.dp));Card(Modifier.fillMaxWidth(0.92f),colors=CardDefaults.cardColors(containerColor=if(m.role=="user")Color(0xFF32151D)else Panel),border=androidx.compose.foundation.BorderStroke(1.dp,Cyan.copy(alpha=0.12f))){Column(Modifier.padding(12.dp)){Text(m.content,modifier=if(m.role=="assistant")Modifier.testTag("assistant-response")else Modifier,color=Color.White);if(m.role=="assistant")Row{TextButton(onClick={onSpeak(m.content)}){Text("READ ALOUD",color=Cyan,fontSize=9.sp)};TextButton(onClick=onStopSpeak){Text("STOP VOICE",color=Muted,fontSize=9.sp)}}}}}}
    if(isGenerating)item{Text("HAIRA IS THINKING…",color=Cyan,fontSize=11.sp,fontWeight=FontWeight.Bold)}
