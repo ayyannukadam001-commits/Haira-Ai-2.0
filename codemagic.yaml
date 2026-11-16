@@ -1,0 +1,41 @@
+workflows:
+  haira-android-debug:
+    name: HAIRA AI 2.0 Android Debug APK
+    max_build_duration: 120
+    instance_type: linux_x2
+    environment:
+      android:
+        compile_sdk: 35
+        ndk: 27.0.12077973
+      java: 17
+    scripts:
+      - name: Set Android SDK location
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
+      - name: Install required Android SDK components
+        script: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_SDK_ROOT" -type f -name sdkmanager 2>/dev/null | head -n 1)"
+          if [ -z "$SDKMANAGER" ]; then echo "sdkmanager not found"; exit 1; fi
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
+      - name: Install Gradle 8.9
+        script: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-all-errors https://services.gradle.org/distributions/gradle-8.9-bin.zip -o /tmp/gradle-8.9-bin.zip
+          unzip -q /tmp/gradle-8.9-bin.zip -d /tmp
+          echo "/tmp/gradle-8.9/bin" >> "$CM_ENV"
+      - name: Download and verify bundled SmolLM2 model
+        script: |
+          set -euo pipefail
+          mkdir -p app/src/main/assets
+          curl -fL --retry 3 --retry-all-errors https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF/resolve/ddde4293f6050e8b81cca2ea2438c2fe444a0d5b/SmolLM2-360M-Instruct-Q4_K_M.gguf -o app/src/main/assets/default-model.gguf
+          echo "2fa3f013dcdd7b99f9b237717fa0b12d75bbb89984cc1274be1471a465bac9c2  app/src/main/assets/default-model.gguf" | sha256sum --check
+      - name: Build APK and run unit tests
+        script: |
+          set -euo pipefail
+          /tmp/gradle-8.9/bin/gradle --no-daemon :app:assembleDebug :app:testDebugUnitTest
+    artifacts:
+      - app/build/outputs/apk/debug/app-debug.apk
+      - app/build/reports/tests/testDebugUnitTest/**
+      - app/build/outputs/logs/**
