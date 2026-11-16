@@ -84,6 +84,7 @@ fun HairaApp(){
  var engineError by remember{mutableStateOf<String?>(null)}
  var bundledVerified by remember{mutableStateOf(false)}
  var isGenerating by remember{mutableStateOf(false)}
+ var streamingText by remember{mutableStateOf("")}
  val backendAvailable = remember { LocalInference.backendAvailable }
  var addMemory by remember{mutableStateOf(false)}
  var memoryDraft by remember{mutableStateOf("")}
@@ -158,7 +159,7 @@ fun HairaApp(){
   }}}){padding->
    when(tab){
     "HAIRA"->ChatScreen(Modifier.padding(padding),chats,chatId,dao.messages(chatId).collectAsState(initial=emptyList()).value,
-     engineStatus=engineStatus,engineError=engineError,isGenerating=isGenerating,
+     engineStatus=engineStatus,engineError=engineError,isGenerating=isGenerating,streamingText=streamingText,
      onPick={chatId=it},onNew={scope.launch{chatId=dao.addConversation(ConversationEntity(title="Chat "+(chats.size+1)))}},
      onRenameClick={renameDraft=chats.firstOrNull{it.id==chatId}?.title.orEmpty();renameChatVisible=true},
      onDeleteChat={scope.launch{dao.deleteConversation(chatId);chatId=0L}},
@@ -167,6 +168,7 @@ fun HairaApp(){
       if(!isGenerating){
        scope.launch{
         isGenerating=true
+        streamingText=""
         try {
          val activeId=if(chatId==0L)dao.addConversation(ConversationEntity(title=text.take(32))) else chatId
          chatId=activeId
@@ -186,14 +188,23 @@ fun HairaApp(){
           val key=providerSettings.apiKey ?: error("Online provider API key is not saved. Configure it in System.")
           val cloudMessages=mutableListOf("system" to systemInstruction)
           history.forEach{message->cloudMessages.add((if(message.role=="assistant")"assistant" else "user") to message.content.take(1200))}
-          withContext(Dispatchers.IO){OpenAiCompatibleClient().complete(providerBaseUrl,key,providerModel,cloudMessages)}
+          withContext(Dispatchers.IO){OpenAiCompatibleClient().stream(providerBaseUrl,key,providerModel,cloudMessages){delta->
+           withContext(Dispatchers.Main){streamingText+=delta}
+          }}
          } else withContext(Dispatchers.Default){LocalInference.generate(prompt)}
          if(!answer.isNullOrBlank())dao.addMessage(MessageEntity(conversationId=activeId,role="assistant",content=answer.trim()))
          else error("The model returned an empty response.")
+         streamingText=""
         } catch(e:Exception) {
          android.util.Log.e("HAIRA-CHAT","Message generation failed",e)
-         Toast.makeText(context,e.message ?: "AI response failed.",Toast.LENGTH_LONG).show()
-        } finally { isGenerating=false }
+         streamingText=""
+         if(onlineProviderEnabled && LocalInference.isLoaded){
+          runCatching{withContext(Dispatchers.Default){LocalInference.generate(prompt)}}.onSuccess{fallback->
+           if(!fallback.isNullOrBlank())dao.addMessage(MessageEntity(conversationId=activeId,role="assistant",content=fallback.trim()+"\n\n[Answered with local fallback]"))
+           else Toast.makeText(context,e.message ?: "AI response failed.",Toast.LENGTH_LONG).show()
+          }.onFailure{Toast.makeText(context,e.message ?: "AI response failed.",Toast.LENGTH_LONG).show()}
+         } else Toast.makeText(context,e.message ?: "AI response failed.",Toast.LENGTH_LONG).show()
+        } finally { streamingText=""; isGenerating=false }
        }
       }
      },onMic={micPermission.launch(Manifest.permission.RECORD_AUDIO)},onSpeak={voice.speak(it)},onStopSpeak={voice.stop()})
@@ -311,33 +322,73 @@ private fun HairaCore(modifier:Modifier=Modifier){
 }
 
 @Composable
-private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit,recognizedSpeech:String?,onSpeechConsumed:()->Unit,onRenameClick:()->Unit,onDeleteChat:()->Unit,onStopSpeak:()->Unit){
+private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:Long,messages:List<MessageEntity>,engineStatus:String,engineError:String?,isGenerating:Boolean,streamingText:String,onPick:(Long)->Unit,onNew:()->Unit,onSend:(String)->Unit,onMic:()->Unit,onSpeak:(String)->Unit,recognizedSpeech:String?,onSpeechConsumed:()->Unit,onRenameClick:()->Unit,onDeleteChat:()->Unit,onStopSpeak:()->Unit){
  var draft by remember{mutableStateOf("")}
- var chatQuery by remember{mutableStateOf("")}
+ var showHistory by remember{mutableStateOf(false)}
  LaunchedEffect(recognizedSpeech,isGenerating){
   val phrase=recognizedSpeech
   if(!phrase.isNullOrBlank()&&!isGenerating){onSend(phrase);onSpeechConsumed()}
  }
- Column(modifier.fillMaxSize().imePadding().background(Brush.verticalGradient(listOf(Night,Color(0xFF0A1D32)))).padding(16.dp)){
-  Row(verticalAlignment=Alignment.CenterVertically){HairaCore(Modifier.size(68.dp));Column(Modifier.weight(1f).padding(start=10.dp)){Text("HAIRA AI",color=Color.White,fontSize=23.sp,fontWeight=FontWeight.Bold);Text("HOLOGRAPHIC AI CORE",color=Cyan,fontSize=9.sp,letterSpacing=1.5.sp);Text(engineStatus,color=Muted,fontSize=9.sp)};TextButton(onClick={chatQuery="";onNew()}){Text("+ New",color=Cyan)}}
-  if(chatId!=0L) Row(horizontalArrangement=Arrangement.End,modifier=Modifier.fillMaxWidth()){
-   TextButton(onClick=onRenameClick){Text("Rename chat",color=Cyan)}
-   TextButton(onClick=onDeleteChat){Text("Delete chat",color=Warning)}
+ Column(modifier.fillMaxSize().imePadding().background(Color(0xFF050505)).padding(horizontal=16.dp, vertical=10.dp)){
+  Row(verticalAlignment=Alignment.CenterVertically,modifier=Modifier.fillMaxWidth()){
+   TextButton(onClick={showHistory=!showHistory}){Text("☰",color=Color.White,fontSize=22.sp)}
+   Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally){
+    Text("HAIRA",color=Color.White,fontSize=19.sp,fontWeight=FontWeight.Bold,letterSpacing=2.sp)
+    Text(if(isGenerating)"GENERATING" else "AI ASSISTANT",color=Color(0xFF9A9A9A),fontSize=9.sp,letterSpacing=1.4.sp)
+   }
+   TextButton(onClick=onNew){Text("+",color=Color.White,fontSize=25.sp)}
   }
-  if(chats.isNotEmpty()){
-   OutlinedTextField(chatQuery,{chatQuery=it},Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("Search conversations")})
-   val visibleChats=chats.filter{it.title.contains(chatQuery,ignoreCase=true)}
-   if(visibleChats.isEmpty())Text("No matching conversations",color=Muted,fontSize=11.sp)
-   else LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(vertical=8.dp)){items(visibleChats,key={it.id}){chat->FilterChip(selected=chat.id==chatId,onClick={onPick(chat.id)},label={Text((if(chat.title=="New conversation") "Chat "+(chats.indexOf(chat)+1) else chat.title).ifBlank{"Untitled"}.take(24),maxLines=1)})}}
+  if(showHistory){
+   Card(Modifier.fillMaxWidth().padding(bottom=8.dp),colors=CardDefaults.cardColors(containerColor=Color(0xFF171717))){
+    Column(Modifier.padding(10.dp)){
+     Row(verticalAlignment=Alignment.CenterVertically){Text("Chat history",Modifier.weight(1f),color=Color.White,fontWeight=FontWeight.SemiBold);TextButton(onClick={showHistory=false}){Text("Close")}}
+     if(chats.isEmpty())Text("No conversations yet",color=Color.Gray,fontSize=12.sp)
+     else LazyColumn(Modifier.heightIn(max=180.dp)){items(chats,key={it.id}){chat->TextButton(onClick={onPick(chat.id);showHistory=false},modifier=Modifier.fillMaxWidth()){Text(chat.title.ifBlank{"New chat"},color=if(chat.id==chatId)Color.White else Color.LightGray,maxLines=1)}}}
+     if(chatId!=0L)Row{TextButton(onClick=onRenameClick){Text("Rename")};TextButton(onClick=onDeleteChat){Text("Delete",color=Color(0xFFFF7777))}}
+    }
+   }
   }
-  Card(Modifier.fillMaxWidth().padding(top=4.dp),colors=CardDefaults.cardColors(containerColor=Panel)){Column(Modifier.padding(12.dp)){Text("ENGINE STATUS",color=Cyan,fontSize=10.sp,fontWeight=FontWeight.Bold);Text(engineStatus,color=if(engineStatus=="Model ready")Cyan else Warning,fontSize=12.sp);if(engineError!=null)Text(engineError,color=Warning,fontSize=11.sp)}}
-  LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(vertical=10.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-   if(messages.isEmpty())item{Text("Chat history is stored locally. AI replies are only generated when a real local model is loaded.",color=Muted,fontSize=13.sp)}
-   items(messages,key={it.id}){m->Card(colors=CardDefaults.cardColors(containerColor=if(m.role=="user")Color(0xFF12344A)else Panel)){Column(Modifier.padding(12.dp)){Text(m.role.uppercase(),color=Cyan,fontSize=9.sp,fontWeight=FontWeight.Bold);Text(m.content,modifier=if(m.role=="assistant")Modifier.testTag("assistant-response") else Modifier,color=Color.White);if(m.role=="assistant")TextButton(onClick={onSpeak(m.content)}){Text("Read aloud")};TextButton(onClick=onStopSpeak){Text("Stop voice")}}}}
-   if(isGenerating)item{Text("HAIRA is thinking…",color=Cyan,fontSize=13.sp)}
+  if(messages.isEmpty() && streamingText.isBlank()){
+   Spacer(Modifier.weight(1f))
+   Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally){
+    HairaCore(Modifier.size(104.dp))
+    Text("What can I help with?",color=Color.White,fontSize=23.sp,fontWeight=FontWeight.SemiBold,modifier=Modifier.padding(top=22.dp))
+    Text("Ask anything. Let's figure it out together.",color=Color(0xFF999999),fontSize=13.sp,modifier=Modifier.padding(top=7.dp))
+    Row(Modifier.fillMaxWidth().padding(top=24.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+     listOf("Explain something","Write for me").forEach{label->AssistChip(onClick={draft=label+" "},label={Text(label,color=Color.White)},colors=AssistChipDefaults.assistChipColors(containerColor=Color(0xFF171717)))}
+    }
+    Row(Modifier.fillMaxWidth().padding(top=8.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+     listOf("Brainstorm ideas","Help me learn").forEach{label->AssistChip(onClick={draft=label+" "},label={Text(label,color=Color.White)},colors=AssistChipDefaults.assistChipColors(containerColor=Color(0xFF171717)))}
+    }
+   }
+   Spacer(Modifier.weight(1f))
+  }else{
+   LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(vertical=12.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
+    items(messages,key={it.id}){m->
+     Column(Modifier.fillMaxWidth(),horizontalAlignment=if(m.role=="user")Alignment.End else Alignment.Start){
+      Text(if(m.role=="user")"YOU" else "HAIRA",color=Color(0xFF888888),fontSize=9.sp,letterSpacing=1.sp,modifier=Modifier.padding(bottom=4.dp))
+      Card(colors=CardDefaults.cardColors(containerColor=if(m.role=="user")Color(0xFF242424) else Color(0xFF111111))){
+       Column(Modifier.padding(12.dp)){
+        Text(m.content,modifier=if(m.role=="assistant")Modifier.testTag("assistant-response") else Modifier,color=Color.White)
+        if(m.role=="assistant")Row{TextButton(onClick={onSpeak(m.content)}){Text("Read aloud")};TextButton(onClick=onStopSpeak){Text("Stop")}}
+       }
+      }
+     }
+    }
+    if(streamingText.isNotBlank())item{Column{Text("HAIRA",color=Color(0xFF888888),fontSize=9.sp);Text(streamingText,color=Color.White,modifier=Modifier.padding(top=5.dp))}}
+    if(isGenerating && streamingText.isBlank())item{Text("Thinking…",color=Color(0xFFB0B0B0),fontSize=12.sp)}
+   }
   }
-  Row(verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onMic){Text("MIC",color=Cyan)};OutlinedTextField(draft,{draft=it},Modifier.weight(1f),placeholder={Text("Message HAIRA")},keyboardOptions=KeyboardOptions(capitalization=KeyboardCapitalization.Sentences),maxLines=4,enabled=!isGenerating);TextButton(enabled=!isGenerating,onClick={val v=draft.trim();if(v.isNotEmpty()){onSend(v);draft=""}}){Text(if(isGenerating)"…" else "SEND",color=Cyan)}}
-  Text("Offline speech recognition depends on installed Android language packs.",color=Muted,fontSize=9.sp)
+  Row(Modifier.fillMaxWidth().padding(top=8.dp),verticalAlignment=Alignment.CenterVertically){
+   Card(Modifier.weight(1f),colors=CardDefaults.cardColors(containerColor=Color(0xFF1A1A1A)),shape=MaterialTheme.shapes.extraLarge){
+    Row(Modifier.padding(horizontal=8.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically){
+     TextButton(onClick=onMic,contentPadding=PaddingValues(horizontal=6.dp)){Text("🎙",fontSize=17.sp)}
+     OutlinedTextField(value=draft,onValueChange={draft=it},modifier=Modifier.weight(1f),placeholder={Text("Message HAIRA",color=Color(0xFF888888))},keyboardOptions=KeyboardOptions(capitalization=KeyboardCapitalization.Sentences),maxLines=5,enabled=!isGenerating,colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=Color.Transparent,unfocusedBorderColor=Color.Transparent,focusedContainerColor=Color.Transparent,unfocusedContainerColor=Color.Transparent,focusedTextColor=Color.White,unfocusedTextColor=Color.White))
+     TextButton(enabled=!isGenerating && draft.isNotBlank(),onClick={val value=draft.trim();if(value.isNotEmpty()){onSend(value);draft=""}},contentPadding=PaddingValues(horizontal=8.dp)){Text(if(isGenerating)"…" else "↑",color=Color.White,fontSize=23.sp)}
+    }
+   }
+  }
+  if(engineError!=null)Text("Local engine: "+engineError,color=Color(0xFFFFB66D),fontSize=9.sp,modifier=Modifier.padding(top=4.dp))
  }
 }
 
