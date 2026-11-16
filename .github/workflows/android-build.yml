@@ -9,7 +9,7 @@ concurrency:
   group: haira-android-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 permissions:
-  contents: read
+  contents: write
 jobs:
   debug-apk:
     runs-on: ubuntu-latest
@@ -39,13 +39,22 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug
       - name: Run unit tests
         run: gradle --no-daemon :app:testDebugUnitTest
-      - name: Upload built debug APK
+      - name: Upload built debug APK artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: HAIRA-AI-2.0-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: warn
+      - name: Publish direct APK download
+        if: success() && github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: haira-debug-${{ github.run_id }}
+          name: HAIRA AI 2.0 Debug APK #${{ github.run_number }}
+          prerelease: true
+          generate_release_notes: false
+          files: app/build/outputs/apk/debug/app-debug.apk
       # Keep the heavyweight device/emulator smoke test available on demand.
       # It must not block normal APK builds when GitHub's hosted emulator is overloaded.
       - name: Install, launch and test local inference on Android emulator
