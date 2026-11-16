@@ -86,8 +86,9 @@ class RepositorySyncService {
                     if (fileResponse.first == 200 && fileResponse.second.isNotBlank()) {
                         val remaining = (80 * 1024 - source.length).coerceAtLeast(0)
                         if (remaining > 0) {
+                            val safeExcerpt = redactSecrets(fileResponse.second)
                             source.append("\n--- FILE: ").append(path).append(" ---\n")
-                                .append(fileResponse.second.take(remaining))
+                                .append(safeExcerpt.take(remaining))
                                 .append("\n")
                         }
                     }
@@ -129,6 +130,17 @@ class RepositorySyncService {
             "Invalid GitHub repository path."
         }
         return owner to repository
+    }
+
+    private fun redactSecrets(text: String): String {
+        return text
+            .replace(
+                Regex("(?im)(api[_-]?key|access[_-]?token|client[_-]?secret|password|secret)\\s*[:=]\\s*[\"']?[^\\s\"',}]+"),
+                "$1=[REDACTED]"
+            )
+            .replace(Regex("\\bgh[pousr]_[A-Za-z0-9_]{20,}\\b"), "[REDACTED_GITHUB_TOKEN]")
+            .replace(Regex("\\bgithub_pat_[A-Za-z0-9_]{20,}\\b"), "[REDACTED_GITHUB_TOKEN]")
+            .replace(Regex("\\bsk-[A-Za-z0-9_-]{20,}\\b"), "[REDACTED_API_KEY]")
     }
 
     private fun request(url: String, accept: String, maxBytes: Int, token: String?): Pair<Int, String> {
