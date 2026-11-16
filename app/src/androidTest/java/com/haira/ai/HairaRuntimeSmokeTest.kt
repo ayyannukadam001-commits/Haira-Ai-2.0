@@ -22,13 +22,13 @@ class HairaRuntimeSmokeTest {
     @Test
     fun bundledModelLoadsAndGeneratesAnAssistantResponse() {
         composeRule.waitUntil(timeoutMillis = 240_000) {
-            composeRule.onAllNodesWithText("Model ready").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("MODEL READY").fetchSemanticsNodes().isNotEmpty()
         }
 
-        composeRule.onNodeWithText("Message HAIRA").performTextInput(
+        composeRule.onNodeWithText("Message HAIRA • /image prompt to generate").performTextInput(
             "Say hello in one short sentence."
         )
-        composeRule.onNodeWithText("SEND").performClick()
+        composeRule.onNodeWithText("↑").performClick()
 
         composeRule.waitUntil(timeoutMillis = 240_000) {
             composeRule.onAllNodesWithTag("assistant-response").fetchSemanticsNodes().any { node ->
