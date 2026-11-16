@@ -62,6 +62,7 @@ object OpenAiCompatibleClient {
             requestMethod = "POST"
             connectTimeout = 15_000
             readTimeout = 90_000
+            instanceFollowRedirects = false
             doOutput = true
             setRequestProperty("Authorization", "Bearer ${config.apiKey}")
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
