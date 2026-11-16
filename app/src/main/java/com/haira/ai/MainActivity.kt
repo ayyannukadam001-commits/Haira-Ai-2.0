@@ -19,6 +19,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -152,7 +158,7 @@ fun HairaApp(){
 
  MaterialTheme(colorScheme=darkColorScheme(background=Night,surface=Panel,primary=Cyan)){
   Scaffold(containerColor=Night,bottomBar={NavigationBar(containerColor=Panel){listOf("HAIRA","Studio","Actions","Builder","System").forEach{item->
-   NavigationBarItem(selected=tab==item,onClick={tab=item},icon={Text(item.take(1),color=Cyan,fontWeight=FontWeight.Bold)},label={Text(item,fontSize=10.sp)})
+   NavigationBarItem(selected=tab==item,onClick={tab=item},icon={Icon(imageVector=when(item){ "HAIRA"->Icons.Filled.Home; "Studio"->Icons.Filled.MusicNote; "Actions"->Icons.Filled.Search; "Builder"->Icons.Filled.Build; else->Icons.Filled.Settings },contentDescription=item,tint=Cyan)},label={Text(item,fontSize=11.sp,fontWeight=if(tab==item)FontWeight.Bold else FontWeight.Medium)})
   }}}){padding->
    when(tab){
     "HAIRA"->ChatScreen(Modifier.padding(padding),chats,chatId,dao.messages(chatId).collectAsState(initial=emptyList()).value,
@@ -291,7 +297,7 @@ private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:L
  Column(modifier.fillMaxSize().imePadding().background(Brush.verticalGradient(listOf(Night,Color(0xFF13070B),Night))).padding(horizontal=16.dp,vertical=12.dp)){
   Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("HAIRA",color=Color.White,fontSize=25.sp,fontWeight=FontWeight.Black,letterSpacing=2.sp);Text("PERSONAL AI SYSTEM  •  v2.0",color=Cyan,fontSize=9.sp,letterSpacing=1.5.sp)};TextButton(onClick={chatQuery="";onNew()}){Text("+ NEW CHAT",color=Cyan,fontSize=11.sp,fontWeight=FontWeight.Bold)}}
   Card(Modifier.fillMaxWidth().padding(top=8.dp,bottom=10.dp),colors=CardDefaults.cardColors(containerColor=Panel),border=androidx.compose.foundation.BorderStroke(1.dp,Cyan.copy(alpha=0.24f))){
-   Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){HairaCore(Modifier.size(142.dp));Column(Modifier.weight(1f).padding(start=12.dp)){Text("SYSTEM ONLINE",color=Cyan,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.2.sp);Text("Your AI. Your command.",color=Color.White,fontSize=17.sp,fontWeight=FontWeight.Bold);Text(engineStatus,color=Muted,fontSize=11.sp,modifier=Modifier.padding(top=5.dp));if(engineError!=null)Text(engineError,color=Warning,fontSize=10.sp,maxLines=2);Text("VOICE  •  INTELLIGENCE  •  CONTROL",color=Muted,fontSize=8.sp,letterSpacing=0.6.sp,modifier=Modifier.padding(top=8.dp))}}
+   Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){HairaCore(Modifier.size(156.dp));Column(Modifier.weight(1f).padding(start=12.dp)){Text(if(engineStatus=="Model ready" || engineStatus.startsWith("Online")) "AI CORE ONLINE" else "AI CORE SETUP",color=if(engineStatus=="Model ready" || engineStatus.startsWith("Online")) Cyan else Warning,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.2.sp);Text("Your AI. Your command.",color=Color.White,fontSize=19.sp,fontWeight=FontWeight.Bold);Text(engineStatus,color=Muted,fontSize=11.sp,modifier=Modifier.padding(top=5.dp));if(engineError!=null)Text(engineError,color=Warning,fontSize=10.sp,maxLines=3);Text("VOICE  •  INTELLIGENCE  •  CONTROL",color=Muted,fontSize=8.sp,letterSpacing=0.6.sp,modifier=Modifier.padding(top=8.dp))}}
   }
   if(chats.isNotEmpty()){
    Row(verticalAlignment=Alignment.CenterVertically){Text("CONVERSATIONS",color=Muted,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp,modifier=Modifier.weight(1f));TextButton(onClick=onRenameClick,enabled=chatId!=0L){Text("RENAME",color=Cyan,fontSize=9.sp)};TextButton(onClick=onDeleteChat,enabled=chatId!=0L){Text("DELETE",color=Warning,fontSize=9.sp)}}
@@ -304,7 +310,7 @@ private fun ChatScreen(modifier:Modifier,chats:List<ConversationEntity>,chatId:L
    items(messages,key={it.id}){m->Column(Modifier.fillMaxWidth(),horizontalAlignment=if(m.role=="user")Alignment.End else Alignment.Start){Text(if(m.role=="user")"YOU" else "HAIRA",color=Cyan,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp,modifier=Modifier.padding(horizontal=6.dp,vertical=3.dp));Card(Modifier.fillMaxWidth(0.92f),colors=CardDefaults.cardColors(containerColor=if(m.role=="user")Color(0xFF32151D)else Panel),border=androidx.compose.foundation.BorderStroke(1.dp,Cyan.copy(alpha=0.12f))){Column(Modifier.padding(12.dp)){Text(m.content,modifier=if(m.role=="assistant")Modifier.testTag("assistant-response")else Modifier,color=Color.White);if(m.role=="assistant")Row{TextButton(onClick={onSpeak(m.content)}){Text("READ ALOUD",color=Cyan,fontSize=9.sp)};TextButton(onClick=onStopSpeak){Text("STOP VOICE",color=Muted,fontSize=9.sp)}}}}}}
    if(isGenerating)item{Text("HAIRA IS THINKING…",color=Cyan,fontSize=11.sp,fontWeight=FontWeight.Bold)}
   }
-  Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Panel),border=androidx.compose.foundation.BorderStroke(1.dp,Cyan.copy(alpha=0.28f))){Row(Modifier.padding(7.dp),verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onMic){Text("MIC",color=Cyan,fontWeight=FontWeight.Bold,fontSize=10.sp)};OutlinedTextField(draft,{draft=it},Modifier.weight(1f),placeholder={Text("Message HAIRA…")},keyboardOptions=KeyboardOptions(capitalization=KeyboardCapitalization.Sentences),maxLines=4,enabled=!isGenerating);TextButton(enabled=!isGenerating,onClick={val v=draft.trim();if(v.isNotEmpty()){onSend(v);draft=""}}){Text(if(isGenerating)"…" else "SEND",color=Cyan,fontWeight=FontWeight.Bold,fontSize=10.sp)}}}
+  Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Panel),border=androidx.compose.foundation.BorderStroke(1.dp,Cyan.copy(alpha=0.28f))){Row(Modifier.padding(7.dp),verticalAlignment=Alignment.CenterVertically){TextButton(onClick=onMic){Text("MIC",color=Cyan,fontWeight=FontWeight.Bold,fontSize=10.sp)};OutlinedTextField(value=draft,onValueChange={draft=it},modifier=Modifier.weight(1f).heightIn(min=54.dp,max=112.dp),placeholder={Text("Message HAIRA…")},keyboardOptions=KeyboardOptions(capitalization=KeyboardCapitalization.Sentences),minLines=1,maxLines=3,enabled=!isGenerating);TextButton(enabled=!isGenerating,onClick={val v=draft.trim();if(v.isNotEmpty()){onSend(v);draft=""}}){Text(if(isGenerating)"…" else "SEND",color=Cyan,fontWeight=FontWeight.Bold,fontSize=10.sp)}}}
   Text("Speech recognition availability depends on your Android language pack.",color=Muted,fontSize=8.sp,modifier=Modifier.padding(top=5.dp))
  }
 }
