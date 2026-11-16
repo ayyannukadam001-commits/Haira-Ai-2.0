@@ -120,7 +120,7 @@ class OpenAiCompatibleClient {
         apiKey: String,
         model: String,
         messages: List<Pair<String, String>>,
-        onDelta: (String) -> Unit
+        onDelta: suspend (String) -> Unit
     ): String = withContext(Dispatchers.IO) {
         val parsedBase = Uri.parse(baseUrl.trim())
         require(parsedBase.scheme.equals("https", true) && !parsedBase.host.isNullOrBlank() &&
