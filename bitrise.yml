@@ -1,0 +1,41 @@
+format_version: '11'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: android
+
+trigger_map:
+  - push_branch: main
+    workflow: haira_android_debug
+  - pull_request_source_branch: "*"
+    workflow: haira_android_debug
+
+workflows:
+  haira_android_debug:
+    title: HAIRA AI 2.0 Android Debug APK
+    description: Build and test the Android debug APK, including the pinned bundled local model.
+    steps:
+      - git-clone@8: {}
+      - script@1:
+          title: Prepare Android SDK, Gradle and bundled model
+          inputs:
+            - content: |-
+                set -euo pipefail
+                SDKMANAGER="$(find "$ANDROID_HOME" -type f -name sdkmanager 2>/dev/null | head -n 1)"
+                if [ -z "$SDKMANAGER" ]; then echo "sdkmanager not found"; exit 1; fi
+                yes | "$SDKMANAGER" --licenses >/dev/null
+                "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
+                curl -fL --retry 3 --retry-all-errors https://services.gradle.org/distributions/gradle-8.9-bin.zip -o /tmp/gradle-8.9-bin.zip
+                unzip -q /tmp/gradle-8.9-bin.zip -d /tmp
+                echo "PATH=/tmp/gradle-8.9/bin:$PATH" >> "$BITRISE_ENV_FILE_PATH"
+                mkdir -p app/src/main/assets
+                curl -fL --retry 3 --retry-all-errors "https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF/resolve/ddde4293f6050e8b81cca2ea2438c2fe444a0d5b/SmolLM2-360M-Instruct-Q4_K_M.gguf" -o app/src/main/assets/default-model.gguf
+                echo "2fa3f013dcdd7b99f9b237717fa0b12d75bbb89984cc1274be1471a465bac9c2  app/src/main/assets/default-model.gguf" | sha256sum --check
+                printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
+      - script@1:
+          title: Build HAIRA APK and run unit tests
+          inputs:
+            - content: |-
+                set -euo pipefail
+                /tmp/gradle-8.9/bin/gradle --no-daemon :app:assembleDebug :app:testDebugUnitTest
+                mkdir -p "$BITRISE_DEPLOY_DIR"
+                cp app/build/outputs/apk/debug/app-debug.apk "$BITRISE_DEPLOY_DIR/HAIRA-AI-2.0-debug.apk"
+      - deploy-to-bitrise-io@2: {}
