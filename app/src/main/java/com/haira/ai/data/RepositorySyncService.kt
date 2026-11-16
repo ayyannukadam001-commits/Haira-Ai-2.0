@@ -57,7 +57,7 @@ class RepositorySyncService {
 
     internal fun parseGitHubUrl(input: String): Pair<String, String> {
         val uri = runCatching { URI(input.trim()) }.getOrNull()
-            ?: error("Enter a valid GitHub repository URL.")
+            ?: throw IllegalArgumentException("Enter a valid GitHub repository URL.")
         require(
             uri.scheme.equals("https", ignoreCase = true) &&
                 uri.host.equals("github.com", ignoreCase = true) &&
