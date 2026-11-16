@@ -2,6 +2,7 @@ package com.haira.ai.ai
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.google.gson.JsonParser
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -113,15 +114,21 @@ object OpenAiCompatibleClient {
 
     internal fun deltaFromSseData(data: String): String {
         if (data.isBlank() || data == "[DONE]") return ""
-        val root = JSONObject(data)
-        val delta = root.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("delta")
-            ?: return ""
-        return when (val content = delta.opt("content")) {
-            is String -> content
-            is JSONArray -> buildString {
-                for (i in 0 until content.length()) {
-                    val item = content.optJSONObject(i)
-                    if (item?.optString("type") == "text") append(item.optString("text"))
+        val root = runCatching { JsonParser.parseString(data).asJsonObject }.getOrNull() ?: return ""
+        val choices = root.getAsJsonArray("choices") ?: return ""
+        val delta = choices.firstOrNull()?.takeIf { it.isJsonObject }?.asJsonObject
+            ?.getAsJsonObject("delta") ?: return ""
+        val content = delta.get("content") ?: return ""
+        return when {
+            content.isJsonPrimitive && content.asJsonPrimitive.isString -> content.asString
+            content.isJsonArray -> buildString {
+                content.asJsonArray.forEach { item ->
+                    if (item.isJsonObject) {
+                        val part = item.asJsonObject
+                        if (part.get("type")?.asString == "text") {
+                            append(part.get("text")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty())
+                        }
+                    }
                 }
             }
             else -> ""
