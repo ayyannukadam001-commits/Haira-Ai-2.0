@@ -69,7 +69,7 @@ class RepositorySyncService {
                             !lower.contains("secret") &&
                             !lower.contains(".env") &&
                             !lower.contains("keystore") &&
-                            entry.optLong("size", Long.MAX_VALUE) in 1..(64 * 1024)
+                            entry.optLong("size", Long.MAX_VALUE) in 1L..(64L * 1024L)
                         ) path else null
                     }
                 }.take(18)
