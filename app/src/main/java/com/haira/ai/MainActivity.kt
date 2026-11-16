@@ -45,6 +45,7 @@ import com.haira.ai.ai.OpenAiCompatibleClient
 import com.haira.ai.ai.RemoteChatMessage
 import com.haira.ai.ai.RemoteProviderConfig
 import com.haira.ai.builder.ProjectZipGenerator
+import com.haira.ai.builder.GitHubProjectPublisher
 import com.haira.ai.ai.ModelCatalog
 import com.haira.ai.ai.ModelDownloader
 import com.haira.ai.data.*
