@@ -21,7 +21,7 @@ data class RemoteProviderConfig(
 object OpenAiCompatibleClient {
     internal fun endpointFor(baseUrl: String): String {
         val uri = runCatching { URI(baseUrl.trim()) }.getOrNull()
-            ?: error("Enter a valid HTTPS provider URL.")
+            ?: throw IllegalArgumentException("Enter a valid HTTPS provider URL.")
         require(
             uri.scheme.equals("https", true) &&
                 !uri.host.isNullOrBlank() &&
