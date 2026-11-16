@@ -2,7 +2,7 @@ name: HAIRA Generated Android Project Build
 on:
   workflow_dispatch:
     inputs:
-      project_path:
+      project_archive_path:
         description: Repository folder containing the generated Android Gradle project
         required: true
         type: string
@@ -30,20 +30,24 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Validate generated project path
+      - name: Extract generated project archive
         env:
-          PROJECT_PATH: ${{ inputs.project_path }}
+          PROJECT_ARCHIVE_PATH: ${{ inputs.project_archive_path }}
         run: |
           set -euo pipefail
-          case "$PROJECT_PATH" in
-            ""|/*|*..*) echo "Invalid project path"; exit 1 ;;
+          case "$PROJECT_ARCHIVE_PATH" in
+            ""|/*|*..*) echo "Invalid project archive path"; exit 1 ;;
           esac
-          test -f "$PROJECT_PATH/app/build.gradle.kts" -o -f "$PROJECT_PATH/app/build.gradle"
-          echo "PROJECT_PATH=$PROJECT_PATH" >> "$GITHUB_ENV"
+          test -f "$PROJECT_ARCHIVE_PATH"
+          mkdir -p "$RUNNER_TEMP/haira-generated-project"
+          unzip -q "$PROJECT_ARCHIVE_PATH" -d "$RUNNER_TEMP/haira-generated-project"
+          PROJECT_DIR="$(dirname "$(find "$RUNNER_TEMP/haira-generated-project" -name settings.gradle.kts -type f -print -quit)")"
+          test -f "$PROJECT_DIR/app/build.gradle.kts" -o -f "$PROJECT_DIR/app/build.gradle"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
       - name: Build generated APK
         run: |
-          gradle --no-daemon --project-dir "$PROJECT_PATH" assembleDebug
-          APK_PATH="$(find "$PROJECT_PATH" -path '*/build/outputs/apk/debug/*.apk' -type f | head -n 1)"
+          gradle --no-daemon --project-dir "$PROJECT_DIR" assembleDebug
+          APK_PATH="$(find "$PROJECT_DIR" -path '*/build/outputs/apk/debug/*.apk' -type f | head -n 1)"
           test -n "$APK_PATH"
           mkdir -p generated-apk
           cp "$APK_PATH" generated-apk/app-debug.apk
