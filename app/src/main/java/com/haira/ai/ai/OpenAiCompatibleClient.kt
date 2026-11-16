@@ -112,6 +112,132 @@ object OpenAiCompatibleClient {
         }
     }
 
+
+    /**
+     * Vision request for OpenAI-compatible providers. The provider must support
+     * image_url content blocks; image bytes are supplied as a data URL.
+     */
+    suspend fun completeWithImage(
+        config: RemoteProviderConfig,
+        prompt: String,
+        imageDataUrl: String
+    ): String = withContext(Dispatchers.IO) {
+        require(config.model.isNotBlank()) { "Enter a vision-capable model name." }
+        require(config.apiKey.isNotBlank()) { "Enter the provider API key." }
+        require(prompt.isNotBlank()) { "Enter a question about the image." }
+        require(imageDataUrl.startsWith("data:image/") && imageDataUrl.contains(";base64,")) {
+            "The selected image could not be prepared."
+        }
+        require(imageDataUrl.length <= 8 * 1024 * 1024) { "Image is too large. Choose a smaller image." }
+
+        val endpoint = endpointFor(config.baseUrl)
+        val content = JSONArray()
+            .put(JSONObject().put("type", "text").put("text", prompt))
+            .put(JSONObject().put("type", "image_url").put(
+                "image_url", JSONObject().put("url", imageDataUrl)
+            ))
+        val body = JSONObject().apply {
+            put("model", config.model.trim())
+            put("messages", JSONArray().put(
+                JSONObject().put("role", "user").put("content", content)
+            ))
+            put("stream", false)
+            put("max_tokens", 384)
+        }.toString()
+
+        val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 20_000
+            readTimeout = 120_000
+            instanceFollowRedirects = false
+            doOutput = true
+            setRequestProperty("Authorization", "Bearer ${config.apiKey}")
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            setRequestProperty("Accept", "application/json")
+            setRequestProperty("User-Agent", "HAIRA-AI-Android")
+        }
+        try {
+            connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            val status = connection.responseCode
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+            val response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText().take(2 * 1024 * 1024) }.orEmpty()
+            if (status !in 200..299) {
+                val message = runCatching { JSONObject(response).optJSONObject("error")?.optString("message") }.getOrNull()
+                error(message?.takeIf { it.isNotBlank() }?.take(300) ?: "Vision provider request failed with HTTP $status.")
+            }
+            val choice = JSONObject(response).optJSONArray("choices")?.optJSONObject(0)
+                ?: error("Vision provider returned no choices.")
+            val message = choice.optJSONObject("message") ?: error("Vision provider returned no message.")
+            val answer = when (val value = message.opt("content")) {
+                is String -> value
+                is JSONArray -> buildString {
+                    for (i in 0 until value.length()) {
+                        val part = value.optJSONObject(i)
+                        if (part?.optString("type") == "text") append(part.optString("text"))
+                    }
+                }
+                else -> ""
+            }.trim()
+            require(answer.isNotBlank()) { "Vision provider returned an empty response." }
+            answer
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    /** Generates an image through providers exposing the OpenAI Images API. */
+    suspend fun generateImage(config: RemoteProviderConfig, prompt: String): String =
+        withContext(Dispatchers.IO) {
+            require(prompt.isNotBlank()) { "Describe the image you want to generate." }
+            require(config.apiKey.isNotBlank()) { "Enter the image provider API key." }
+            val uri = runCatching { URI(config.baseUrl.trim()) }.getOrNull()
+                ?: throw IllegalArgumentException("Enter a valid HTTPS image provider URL.")
+            require(uri.scheme.equals("https", true) && !uri.host.isNullOrBlank() &&
+                uri.userInfo == null && uri.query == null && uri.fragment == null) {
+                "Image provider endpoint must use HTTPS."
+            }
+            val path = uri.path.trimEnd('/')
+            val imagePath = when {
+                path.endsWith("/v1") -> "$path/images/generations"
+                path.endsWith("/v1/images/generations") -> path
+                else -> "$path/v1/images/generations"
+            }
+            val endpoint = URI("https", null, uri.host, uri.port, imagePath, null, null).toASCIIString()
+            val body = JSONObject()
+                .put("model", config.model.trim())
+                .put("prompt", prompt.take(2_000))
+                .put("n", 1)
+                .put("size", "1024x1024")
+                .toString()
+            val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 20_000
+                readTimeout = 120_000
+                instanceFollowRedirects = false
+                doOutput = true
+                setRequestProperty("Authorization", "Bearer ${config.apiKey}")
+                setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("User-Agent", "HAIRA-AI-Android")
+            }
+            try {
+                connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                val status = connection.responseCode
+                val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+                val response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText().take(2 * 1024 * 1024) }.orEmpty()
+                if (status !in 200..299) {
+                    val message = runCatching { JSONObject(response).optJSONObject("error")?.optString("message") }.getOrNull()
+                    error(message?.takeIf { it.isNotBlank() }?.take(300) ?: "Image generation failed with HTTP $status.")
+                }
+                val item = JSONObject(response).optJSONArray("data")?.optJSONObject(0)
+                    ?: error("Image provider returned no image.")
+                item.optString("url").takeIf { it.startsWith("https://") }
+                    ?: error("Provider did not return a hosted image URL. This provider may return base64 images, which are not yet supported.")
+            } finally {
+                connection.disconnect()
+            }
+        }
+
     internal fun deltaFromSseData(data: String): String {
         if (data.isBlank() || data == "[DONE]") return ""
         val root = runCatching { JsonParser.parseString(data).asJsonObject }.getOrNull() ?: return ""
