@@ -477,7 +477,11 @@ private fun SystemScreen(modifier:Modifier,models:List<ModelEntity>,memories:Lis
   Card(Modifier.fillMaxWidth().padding(top=10.dp),colors=CardDefaults.cardColors(containerColor=Panel)){
    Column(Modifier.padding(12.dp)){
     Text("ONLINE AI PROVIDER",color=Cyan,fontWeight=FontWeight.Bold)
-    Text("Connect FreeLLMAPI, OmniRoute or another OpenAI-compatible HTTPS gateway that you host or have access to.",color=Muted,fontSize=11.sp,modifier=Modifier.padding(top=4.dp))
+    Text("Choose a Groq model preset, then add your own API key. Free-tier limits apply.",color=Muted,fontSize=11.sp,modifier=Modifier.padding(top=4.dp))
+    Row(horizontalArrangement=Arrangement.spacedBy(6.dp),modifier=Modifier.padding(top=8.dp)){
+     FilterChip(selected=modelDraft=="openai/gpt-oss-20b" && endpointDraft=="https://api.groq.com/openai/v1",onClick={endpointDraft="https://api.groq.com/openai/v1";modelDraft="openai/gpt-oss-20b"},label={Text("Groq Fast • GPT-OSS 20B")})
+     FilterChip(selected=modelDraft=="openai/gpt-oss-120b" && endpointDraft=="https://api.groq.com/openai/v1",onClick={endpointDraft="https://api.groq.com/openai/v1";modelDraft="openai/gpt-oss-120b"},label={Text("Groq Smart • 120B")})
+    }
     OutlinedTextField(endpointDraft,{endpointDraft=it},Modifier.fillMaxWidth().padding(top=8.dp),singleLine=true,label={Text("HTTPS base URL")},placeholder={Text("https://your-host.example/v1")})
     OutlinedTextField(modelDraft,{modelDraft=it},Modifier.fillMaxWidth().padding(top=6.dp),singleLine=true,label={Text("Model ID")},placeholder={Text("auto")})
     OutlinedTextField(apiKeyDraft,{apiKeyDraft=it},Modifier.fillMaxWidth().padding(top=6.dp),singleLine=true,label={Text("API key (leave blank to keep saved key)")},visualTransformation=PasswordVisualTransformation())
