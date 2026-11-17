@@ -1,6 +1,6 @@
 package com.haira.ai.next
 
-import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -17,6 +17,6 @@ class HairaNextRuntimeSmokeTest {
     @Test
     fun launchesNextApplicationAndRendersHomeShell() {
         assertEquals("com.haira.ai.next", composeRule.activity.packageName)
-        composeRule.onNodeWithText("HAIRA").assertExists()
+        composeRule.onNodeWithText("HAIRA").assertIsDisplayed()
     }
 }
