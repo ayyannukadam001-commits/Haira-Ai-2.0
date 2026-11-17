@@ -61,12 +61,10 @@ jobs:
           files: |
             app/build/outputs/apk/debug/app-debug.apk
             haira-next/build/outputs/apk/debug/haira-next-debug.apk
-      # Use a lean AOSP image for deterministic local-inference testing.
-      # The previous Google APIs image exhausted system partition headroom and
-      # repeatedly stalled Package Manager while installing the 305 MiB APK.
-      - name: Install, launch and test local inference on Android emulator
+      # Test the HAIRA Next APK in isolation. Do not install the 305 MiB legacy :app APK here.
+      - name: Install, launch and test HAIRA AI Next on Android emulator
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-        timeout-minutes: 45
+        timeout-minutes: 40
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -81,23 +79,15 @@ jobs:
           script: |
             set -euxo pipefail
             adb wait-for-device
+            timeout 180s bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 3; done'
             adb devices -l
-            adb shell getprop sys.boot_completed
             adb shell df -h /data
             adb logcat -c
             adb logcat > emulator-logcat.txt &
             LOGCAT_PID=$!
             trap 'kill "$LOGCAT_PID" 2>/dev/null || true' EXIT
-            echo "Preflight install: install the complete APK and surface Package Manager failures"
-            timeout 1200s adb install --streaming -r -g app/build/outputs/apk/debug/app-debug.apk || { echo "APK install preflight failed or timed out; collecting package manager and device diagnostics"; adb shell df -h /data || true; adb shell df -h /system || true; adb shell dumpsys diskstats || true; adb logcat -d -t 5000 || true; exit 1; }
-            adb shell pm path com.haira.ai
-            echo "Install and launch the isolated HAIRA AI Next APK"
-            adb install --streaming -r -g haira-next/build/outputs/apk/debug/haira-next-debug.apk
-            adb shell am force-stop com.haira.ai.next || true
-            adb shell am start -n com.haira.ai.next/com.haira.ai.next.MainActivity
-            sleep 8
-            adb shell pidof com.haira.ai.next
-            gradle --no-daemon connectedDebugAndroidTest -x installDebug
+            gradle --no-daemon --stacktrace :haira-next:connectedDebugAndroidTest
+
       - name: Upload emulator diagnostics
         if: always()
         uses: actions/upload-artifact@v4
