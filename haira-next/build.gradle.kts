@@ -21,7 +21,12 @@ android {
     sourceSets.getByName("main").java.srcDir("../app/src/main/java")
     sourceSets.getByName("main").java.exclude("com/haira/ai/MainActivity.kt")
     externalNativeBuild { cmake { path = file("../app/src/main/cpp/CMakeLists.txt"); version = "3.22.1" } }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        // AGP disables BuildConfig generation by default in newer plugin versions.
+        // The identity unit test validates this module's independent application ID.
+        buildConfig = true
+    }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
 }
