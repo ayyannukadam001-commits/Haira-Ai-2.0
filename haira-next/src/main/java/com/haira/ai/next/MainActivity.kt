@@ -278,27 +278,73 @@ private fun BrandMark(size:Int){
 
 @Composable
 private fun HomePage(modifier:Modifier,model:String,engine:String,chats:Int,onChat:()->Unit,onWork:()->Unit,onModels:()->Unit){
-    val anim= rememberInfiniteTransition(label="core")
-    val glow by anim.animateFloat(.3f,.85f,infiniteRepeatable(tween(1700),RepeatMode.Reverse),label="glow")
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),horizontalAlignment=Alignment.CenterHorizontally){
-        Spacer(Modifier.height(12.dp))
-        Box(Modifier.size(218.dp),contentAlignment=Alignment.Center){
-            Canvas(Modifier.fillMaxSize()){drawCircle(Blue.copy(alpha=glow*.10f));drawCircle(Red.copy(alpha=glow*.18f),style=Stroke(2.dp.toPx()),radius=size.minDimension*.39f);drawCircle(Blue.copy(.65f),style=Stroke(1.dp.toPx()),radius=size.minDimension*.31f);drawCircle(Color(0xFF17263C),radius=size.minDimension*.23f)}
-            BrandMark(92)
+    val anim= rememberInfiniteTransition(label="haira-hud")
+    val glow by anim.animateFloat(.35f,.95f,infiniteRepeatable(tween(1900),RepeatMode.Reverse),label="hud-glow")
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=16.dp, vertical=10.dp)){
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+            Column(Modifier.weight(1f)){
+                Text("HAIRA AI",fontSize=27.sp,fontWeight=FontWeight.Black,letterSpacing=2.5.sp,color=Txt)
+                Text("YOUR PERSONAL AI ASSISTANT",fontSize=9.sp,letterSpacing=1.8.sp,color=Muted)
+            }
+            Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(Panel).border(1.dp,Blue.copy(.55f),RoundedCornerShape(14.dp)),contentAlignment=Alignment.Center){
+                Icon(Icons.Default.Settings,"Settings",tint=Blue)
+            }
         }
-        Text("Your AI. Your way.",fontSize=25.sp,fontWeight=FontWeight.Bold,color=Txt)
-        Text("PERSONAL INTELLIGENCE SYSTEM",fontSize=10.sp,color=Muted,letterSpacing=2.sp)
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(13.dp))
         Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
-            StatusTile("ONLINE MODEL",model,Icons.Default.Cloud,Modifier.weight(1f))
-            StatusTile("LOCAL ENGINE",engine,Icons.Default.Memory,Modifier.weight(1f))
+            HudInfoCard("STATUS",if(model!="No online model selected")"ONLINE" else "READY",Icons.Default.Circle,Modifier.weight(1f),Color(0xFF25E6A2))
+            HudInfoCard("MEMORY","$chats CHATS",Icons.Default.Psychology,Modifier.weight(1f),Blue)
         }
-        Spacer(Modifier.height(9.dp));StatusTile("CHAT HISTORY","$chats saved conversations",Icons.Default.Forum,Modifier.fillMaxWidth())
-        Spacer(Modifier.height(20.dp))
-        Button(onClick=onChat,modifier=Modifier.fillMaxWidth().height(54.dp),shape=RoundedCornerShape(17.dp)){Icon(Icons.Default.Chat,null);Spacer(Modifier.width(8.dp));Text("Start a conversation",fontWeight=FontWeight.Bold)}
+        Spacer(Modifier.height(10.dp))
+        Box(Modifier.fillMaxWidth().height(310.dp).clip(RoundedCornerShape(26.dp)).background(Brush.verticalGradient(listOf(Color(0xFF101D35),Color(0xFF080D19),Ink))).border(1.dp,Blue.copy(.45f),RoundedCornerShape(26.dp)),contentAlignment=Alignment.Center){
+            Canvas(Modifier.fillMaxSize()){
+                val cx=size.width/2;val cy=size.height*.48f
+                drawCircle(Blue.copy(alpha=glow*.08f),radius=size.minDimension*.46f,center=androidx.compose.ui.geometry.Offset(cx,cy))
+                drawCircle(Red.copy(alpha=glow*.28f),radius=size.minDimension*.39f,center=androidx.compose.ui.geometry.Offset(cx,cy),style=Stroke(2.dp.toPx()))
+                drawCircle(Blue.copy(alpha=.72f),radius=size.minDimension*.32f,center=androidx.compose.ui.geometry.Offset(cx,cy),style=Stroke(1.4.dp.toPx()))
+                drawCircle(Blue.copy(alpha=glow*.25f),radius=size.minDimension*.24f,center=androidx.compose.ui.geometry.Offset(cx,cy),style=Stroke(7.dp.toPx()))
+                drawLine(Blue.copy(alpha=.35f),androidx.compose.ui.geometry.Offset(18.dp.toPx(),cy),androidx.compose.ui.geometry.Offset(size.width-18.dp.toPx(),cy),1.dp.toPx())
+            }
+            Column(horizontalAlignment=Alignment.CenterHorizontally){
+                Box(Modifier.size(116.dp).clip(RoundedCornerShape(30.dp)).background(Brush.linearGradient(listOf(Color(0xFF172B49),Color(0xFF171323)))).border(1.5.dp,Blue.copy(.8f),RoundedCornerShape(30.dp)),contentAlignment=Alignment.Center){BrandMark(76)}
+                Spacer(Modifier.height(14.dp))
+                Text("HELLO! I'M HAIRA",fontSize=18.sp,fontWeight=FontWeight.Bold,color=Txt,letterSpacing=1.sp)
+                Text("Your AI. Your way.",fontSize=12.sp,color=Blue)
+            }
+            Text("H-CORE • SYSTEM ACTIVE",fontSize=9.sp,color=Blue,letterSpacing=1.4.sp,modifier=Modifier.align(Alignment.BottomCenter).padding(bottom=15.dp))
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
+            HudInfoCard("ONLINE MODEL",model,Icons.Default.Cloud,Modifier.weight(1f),Blue)
+            HudInfoCard("LOCAL ENGINE",engine,Icons.Default.Memory,Modifier.weight(1f),Blue)
+        }
+        Spacer(Modifier.height(10.dp))
+        HudInfoCard("CONVERSATION HISTORY","$chats saved conversations",Icons.Default.Forum,Modifier.fillMaxWidth(),Blue)
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
+            Button(onClick=onChat,modifier=Modifier.weight(1f).height(58.dp),shape=RoundedCornerShape(18.dp),colors=ButtonDefaults.buttonColors(containerColor=Color(0xFFFF315B),contentColor=Color.White)){
+                Icon(Icons.Default.Chat,null);Spacer(Modifier.width(7.dp));Text("Quick Chat",fontWeight=FontWeight.Bold)
+            }
+            OutlinedButton(onClick=onModels,modifier=Modifier.weight(1f).height(58.dp),shape=RoundedCornerShape(18.dp),border=BorderStroke(1.dp,Blue.copy(.7f))){
+                Icon(Icons.Default.Memory,null,tint=Blue);Spacer(Modifier.width(7.dp));Text("Models",color=Txt)
+            }
+        }
         Spacer(Modifier.height(9.dp))
-        OutlinedButton(onClick=onWork,modifier=Modifier.fillMaxWidth().height(52.dp),shape=RoundedCornerShape(17.dp)){Icon(Icons.Default.Work,null);Spacer(Modifier.width(8.dp));Text("Enter Work Mode")}
-        TextButton(onClick=onModels){Icon(Icons.Default.Memory,null);Spacer(Modifier.width(6.dp));Text("Explore local models")}
+        OutlinedButton(onClick=onWork,modifier=Modifier.fillMaxWidth().height(52.dp),shape=RoundedCornerShape(16.dp),border=BorderStroke(1.dp,Red.copy(.65f))){
+            Icon(Icons.Default.Work,null,tint=Red);Spacer(Modifier.width(8.dp));Text("Enter Work Mode",color=Red,fontWeight=FontWeight.SemiBold)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("SYSTEM OVERVIEW",fontSize=10.sp,color=Blue,letterSpacing=2.sp,fontWeight=FontWeight.Bold)
+        Text("ℹ️  AI provider and local engine status are shown above. Connect a provider or load a model before chatting.",fontSize=11.sp,color=Muted,lineHeight=17.sp,modifier=Modifier.padding(top=6.dp,bottom=10.dp))
+    }
+}
+@Composable
+private fun HudInfoCard(title:String,value:String,icon:androidx.compose.ui.graphics.vector.ImageVector,modifier:Modifier,accent:Color){
+    Card(modifier.border(1.dp,accent.copy(.28f),RoundedCornerShape(17.dp)),colors=CardDefaults.cardColors(containerColor=Panel),shape=RoundedCornerShape(17.dp)){
+        Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically){
+            Icon(icon,null,tint=accent,modifier=Modifier.size(22.dp));Spacer(Modifier.width(9.dp))
+            Column(Modifier.weight(1f)){Text(title,fontSize=9.sp,color=Muted,letterSpacing=1.1.sp);Text(value,fontSize=11.sp,color=Txt,fontWeight=FontWeight.SemiBold,maxLines=2)}
+        }
     }
 }
 @Composable
