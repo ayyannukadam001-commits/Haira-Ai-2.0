@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -277,6 +278,36 @@ private fun BrandMark(size:Int){
 }
 
 @Composable
+private fun HologramAvatar(modifier:Modifier=Modifier){
+    Box(modifier,contentAlignment=Alignment.Center){
+        // Rear hair silhouette and cyan holographic aura
+        Box(Modifier.size(width=166.dp,height=190.dp).clip(RoundedCornerShape(48.dp)).background(Brush.radialGradient(listOf(Color(0xFF174D83),Color(0xFF07152B),Color.Transparent))).border(1.dp,Blue.copy(.45f),RoundedCornerShape(48.dp)))
+        // Shoulder armor and chest projection
+        Box(Modifier.align(Alignment.BottomCenter).padding(bottom=2.dp).size(width=188.dp,height=76.dp).clip(RoundedCornerShape(topStart=78.dp,topEnd=78.dp,bottomStart=20.dp,bottomEnd=20.dp)).background(Brush.verticalGradient(listOf(Color(0xFF183D66),Color(0xFF07111F)))).border(1.5.dp,Blue.copy(.85f),RoundedCornerShape(topStart=78.dp,topEnd=78.dp,bottomStart=20.dp,bottomEnd=20.dp)))
+        Box(Modifier.align(Alignment.BottomCenter).padding(bottom=28.dp).size(26.dp).clip(CircleShape).background(Color(0xFF55E8FF).copy(.18f)).border(1.dp,Color(0xFF75EFFF),CircleShape),contentAlignment=Alignment.Center){Text("H",color=Color(0xFF9CF6FF),fontSize=17.sp,fontWeight=FontWeight.Black)}
+        // Neck and face
+        Box(Modifier.align(Alignment.Center).offset(y=31.dp).size(width=43.dp,height=48.dp).clip(RoundedCornerShape(14.dp)).background(Brush.verticalGradient(listOf(Color(0xFFB9D8E8),Color(0xFF385E82)))))
+        Box(Modifier.align(Alignment.Center).offset(y=(-13).dp).size(width=108.dp,height=132.dp).clip(RoundedCornerShape(48.dp)).background(Brush.verticalGradient(listOf(Color(0xFFE5F3F8),Color(0xFF9BBFD5),Color(0xFF547B9C)))).border(1.dp,Color(0xFF7DEBFF),RoundedCornerShape(48.dp))){
+            Column(Modifier.fillMaxSize().padding(top=48.dp),horizontalAlignment=Alignment.CenterHorizontally){
+                Row(Modifier.fillMaxWidth().padding(horizontal=17.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+                    Box(Modifier.size(width=19.dp,height=8.dp).clip(RoundedCornerShape(50)).background(Color(0xFF087FC6)))
+                    Box(Modifier.size(width=19.dp,height=8.dp).clip(RoundedCornerShape(50)).background(Color(0xFF087FC6)))
+                }
+                Spacer(Modifier.height(13.dp))
+                Box(Modifier.size(width=22.dp,height=4.dp).clip(RoundedCornerShape(50)).background(Color(0xFFB85F78)))
+            }
+        }
+        // Dark swept fringe, headset ear cups and luminous side rails
+        Box(Modifier.align(Alignment.TopCenter).padding(top=29.dp).size(width=120.dp,height=42.dp).clip(RoundedCornerShape(topStart=60.dp,topEnd=60.dp,bottomStart=18.dp,bottomEnd=18.dp)).background(Brush.verticalGradient(listOf(Color(0xFF07101F),Color(0xFF172D4C)))))
+        Row(Modifier.align(Alignment.Center).offset(y=(-12).dp).fillMaxWidth().padding(horizontal=27.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+            Box(Modifier.size(width=17.dp,height=53.dp).clip(RoundedCornerShape(9.dp)).background(Brush.verticalGradient(listOf(Color(0xFF64E9FF),Color(0xFF145A9C)))).border(1.dp,Color(0xFF9AF5FF),RoundedCornerShape(9.dp)))
+            Box(Modifier.size(width=17.dp,height=53.dp).clip(RoundedCornerShape(9.dp)).background(Brush.verticalGradient(listOf(Color(0xFF64E9FF),Color(0xFF145A9C)))).border(1.dp,Color(0xFF9AF5FF),RoundedCornerShape(9.dp)))
+        }
+        Box(Modifier.align(Alignment.TopCenter).padding(top=11.dp).size(width=5.dp,height=20.dp).clip(RoundedCornerShape(50)).background(Color(0xFF67EFFF)))
+    }
+}
+
+@Composable
 private fun HomePage(modifier:Modifier,model:String,engine:String,chats:Int,onChat:()->Unit,onWork:()->Unit,onModels:()->Unit){
     val anim= rememberInfiniteTransition(label="haira-hud")
     val glow by anim.animateFloat(.35f,.95f,infiniteRepeatable(tween(1900),RepeatMode.Reverse),label="hud-glow")
@@ -296,22 +327,26 @@ private fun HomePage(modifier:Modifier,model:String,engine:String,chats:Int,onCh
             HudInfoCard("MEMORY","$chats CHATS",Icons.Default.Psychology,Modifier.weight(1f),Blue)
         }
         Spacer(Modifier.height(10.dp))
-        Box(Modifier.fillMaxWidth().height(310.dp).clip(RoundedCornerShape(26.dp)).background(Brush.verticalGradient(listOf(Color(0xFF101D35),Color(0xFF080D19),Ink))).border(1.dp,Blue.copy(.45f),RoundedCornerShape(26.dp)),contentAlignment=Alignment.Center){
+        Box(Modifier.fillMaxWidth().height(360.dp).clip(RoundedCornerShape(26.dp)).background(Brush.verticalGradient(listOf(Color(0xFF101D35),Color(0xFF080D19),Ink))).border(1.dp,Blue.copy(.45f),RoundedCornerShape(26.dp)),contentAlignment=Alignment.Center){
             Canvas(Modifier.fillMaxSize()){
-                val cx=size.width/2;val cy=size.height*.48f
-                drawCircle(Blue.copy(alpha=glow*.08f),radius=size.minDimension*.46f,center=androidx.compose.ui.geometry.Offset(cx,cy))
-                drawCircle(Red.copy(alpha=glow*.28f),radius=size.minDimension*.39f,center=androidx.compose.ui.geometry.Offset(cx,cy),style=Stroke(2.dp.toPx()))
-                drawCircle(Blue.copy(alpha=.72f),radius=size.minDimension*.32f,center=androidx.compose.ui.geometry.Offset(cx,cy),style=Stroke(1.4.dp.toPx()))
-                drawCircle(Blue.copy(alpha=glow*.25f),radius=size.minDimension*.24f,center=androidx.compose.ui.geometry.Offset(cx,cy),style=Stroke(7.dp.toPx()))
-                drawLine(Blue.copy(alpha=.35f),androidx.compose.ui.geometry.Offset(18.dp.toPx(),cy),androidx.compose.ui.geometry.Offset(size.width-18.dp.toPx(),cy),1.dp.toPx())
+                val cx=size.width/2;val cy=size.height*.43f
+                val center=androidx.compose.ui.geometry.Offset(cx,cy)
+                drawCircle(Blue.copy(alpha=glow*.10f),radius=size.minDimension*.47f,center=center)
+                drawCircle(Red.copy(alpha=glow*.30f),radius=size.minDimension*.43f,center=center,style=Stroke(2.5.dp.toPx()))
+                drawCircle(Blue.copy(alpha=.78f),radius=size.minDimension*.36f,center=center,style=Stroke(1.6.dp.toPx()))
+                drawCircle(Blue.copy(alpha=glow*.32f),radius=size.minDimension*.29f,center=center,style=Stroke(8.dp.toPx()))
+                drawArc(Blue.copy(alpha=.95f),startAngle=glow*90f,sweepAngle=105f,useCenter=false,topLeft=androidx.compose.ui.geometry.Offset(cx-size.minDimension*.40f,cy-size.minDimension*.40f),size=androidx.compose.ui.geometry.Size(size.minDimension*.80f,size.minDimension*.80f),style=Stroke(3.dp.toPx()))
+                drawLine(Blue.copy(alpha=.32f),androidx.compose.ui.geometry.Offset(18.dp.toPx(),cy),androidx.compose.ui.geometry.Offset(size.width-18.dp.toPx(),cy),1.dp.toPx())
+                drawCircle(Color(0xFF8DEBFF).copy(alpha=glow),radius=3.dp.toPx(),center=androidx.compose.ui.geometry.Offset(cx+size.minDimension*.36f,cy-size.minDimension*.12f))
+                drawCircle(Color(0xFFFF4968).copy(alpha=glow),radius=2.5.dp.toPx(),center=androidx.compose.ui.geometry.Offset(cx-size.minDimension*.34f,cy+size.minDimension*.18f))
             }
-            Column(horizontalAlignment=Alignment.CenterHorizontally){
-                Box(Modifier.size(116.dp).clip(RoundedCornerShape(30.dp)).background(Brush.linearGradient(listOf(Color(0xFF172B49),Color(0xFF171323)))).border(1.5.dp,Blue.copy(.8f),RoundedCornerShape(30.dp)),contentAlignment=Alignment.Center){BrandMark(76)}
-                Spacer(Modifier.height(14.dp))
+            Column(horizontalAlignment=Alignment.CenterHorizontally,modifier=Modifier.padding(top=4.dp)){
+                HologramAvatar(Modifier.size(width=218.dp,height=228.dp))
+                Spacer(Modifier.height(2.dp))
                 Text("HELLO! I'M HAIRA",fontSize=18.sp,fontWeight=FontWeight.Bold,color=Txt,letterSpacing=1.sp)
                 Text("Your AI. Your way.",fontSize=12.sp,color=Blue)
             }
-            Text("H-CORE • SYSTEM ACTIVE",fontSize=9.sp,color=Blue,letterSpacing=1.4.sp,modifier=Modifier.align(Alignment.BottomCenter).padding(bottom=15.dp))
+            Text("H-CORE • HOLOGRAM ACTIVE",fontSize=9.sp,color=Blue,letterSpacing=1.4.sp,modifier=Modifier.align(Alignment.BottomCenter).padding(bottom=15.dp))
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
