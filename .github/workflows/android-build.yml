@@ -50,17 +50,6 @@ jobs:
             app/build/outputs/apk/debug/app-debug.apk
             haira-next/build/outputs/apk/debug/haira-next-debug.apk
           if-no-files-found: warn
-      - name: Publish direct APK download
-        if: success() && github.event_name != 'pull_request'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: haira-debug-${{ github.run_id }}
-          name: HAIRA AI 2.0 Debug APK #${{ github.run_number }}
-          prerelease: true
-          generate_release_notes: false
-          files: |
-            app/build/outputs/apk/debug/app-debug.apk
-            haira-next/build/outputs/apk/debug/haira-next-debug.apk
       # Test the HAIRA Next APK in isolation. Do not install the 305 MiB legacy :app APK here.
       - name: Install, launch and test HAIRA AI Next on Android emulator
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
@@ -97,6 +86,18 @@ jobs:
             LOGCAT_PID=$!
             trap 'kill "$LOGCAT_PID" 2>/dev/null || true' EXIT
             gradle --no-daemon --stacktrace :haira-next:connectedDebugAndroidTest
+
+      - name: Publish direct APK download
+        if: success() && github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: haira-debug-${{ github.run_id }}
+          name: HAIRA AI 2.0 Debug APK #${{ github.run_number }}
+          prerelease: true
+          generate_release_notes: false
+          files: |
+            app/build/outputs/apk/debug/app-debug.apk
+            haira-next/build/outputs/apk/debug/haira-next-debug.apk
 
       - name: Upload emulator diagnostics
         if: always()
