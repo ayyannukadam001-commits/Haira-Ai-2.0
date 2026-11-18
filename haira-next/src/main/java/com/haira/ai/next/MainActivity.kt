@@ -120,6 +120,7 @@ private fun HairaNextApp() {
     val chats by dao.conversations().collectAsState(initial=emptyList())
     val models by dao.models().collectAsState(initial=emptyList())
     val memories by dao.memories().collectAsState(initial=emptyList())
+    val notes by dao.notes().collectAsState(initial=emptyList())
     val store= remember(ctx){SecureProviderStore(ctx)}
     var provider by remember{mutableStateOf<RemoteProviderConfig?>(null)}
     var page by remember{mutableStateOf("Home")}
@@ -169,9 +170,9 @@ private fun HairaNextApp() {
                 ModalDrawerSheet(drawerContainerColor=Panel){
                     Spacer(Modifier.height(16.dp))
                     Row(Modifier.padding(18.dp),verticalAlignment=Alignment.CenterVertically){BrandMark(44);Spacer(Modifier.width(12.dp));Column{Text("HAIRA",fontSize=22.sp,fontWeight=FontWeight.Black,letterSpacing=2.sp);Text("AI NEXT • 2.1",fontSize=10.sp,color=Muted,letterSpacing=2.sp)}}
-                    listOf("New Chat","Images","Library","Customize","Projects","Remote","Explore","Models","Work Mode").forEach{label->
-                        NavigationDrawerItem(label={Text(label)},icon={Icon(when(label){"New Chat"->Icons.Default.Add;"Images"->Icons.Default.Image;"Library"->Icons.Default.Folder;"Customize"->Icons.Default.Tune;"Projects"->Icons.Default.Workspaces;"Remote"->Icons.Default.Devices;"Explore"->Icons.Default.Explore;"Models"->Icons.Default.Memory;else->Icons.Default.Work},null)},selected=page==label,onClick={
-                            page=when(label){"New Chat"->"Chat";"Work Mode"->{work=true;"Chat"};else->label}
+                    listOf("New Chat","Images","Library","Memory Center","Skills Hub","Voice Assistant","Notes","Device Info","Customize","Projects","Remote","Explore","Models","Work Mode").forEach{label->
+                        NavigationDrawerItem(label={Text(label)},icon={Icon(when(label){"New Chat"->Icons.Default.Add;"Images"->Icons.Default.Image;"Library"->Icons.Default.Folder;"Customize"->Icons.Default.Tune;"Projects"->Icons.Default.Workspaces;"Remote"->Icons.Default.Devices;"Explore"->Icons.Default.Explore;"Models"->Icons.Default.Memory;"Memory Center"->Icons.Default.Psychology;"Skills Hub"->Icons.Default.AutoAwesome;"Voice Assistant"->Icons.Default.Mic;"Notes"->Icons.Default.Notes;"Device Info"->Icons.Default.PhoneAndroid;else->Icons.Default.Work},null)},selected=page==label,onClick={
+                            page=when(label){"New Chat"->"Chat";"Work Mode"->{work=true;"Chat"};"Memory Center"->"Memory";"Skills Hub"->"Skills";"Voice Assistant"->"Voice";"Device Info"->"Device";else->label}
                             if(label=="New Chat")scope.launch{chatId=dao.addConversation(ConversationEntity(title="New conversation"))}
                             drawer=false
                         },modifier=Modifier.padding(horizontal=10.dp))
@@ -185,23 +186,21 @@ private fun HairaNextApp() {
             Scaffold(
                 containerColor=Ink,
                 topBar={TopAppBar(
-                    title={Column{Text("HAIRA",fontWeight=FontWeight.Black,letterSpacing=2.sp);Text(if(provider?.enabled==true)"ONLINE • ${provider?.model}" else engine,fontSize=10.sp,color=Muted,maxLines=1)}},
+                    title={Column{Text("HAIRA AI 2.0",fontWeight=FontWeight.Black,letterSpacing=1.4.sp);Text(if(provider?.enabled==true)"ONLINE • ${provider?.model}" else engine,fontSize=10.sp,color=Muted,maxLines=1)}},
                     navigationIcon={IconButton(onClick={drawer=true}){Icon(Icons.Default.Menu,"Menu")}},
                     actions={if(page=="Chat")IconButton(onClick={work=!work}){Icon(Icons.Default.Work,"Work mode",tint=if(work)Blue else Muted)};IconButton(onClick={page="Settings"}){Icon(Icons.Default.Settings,"Settings")}},
                     colors=TopAppBarDefaults.topAppBarColors(containerColor=Ink,titleContentColor=Txt,navigationIconContentColor=Txt,actionIconContentColor=Txt)
                 )},
-                bottomBar={NavigationBar(containerColor=Panel){listOf("Home" to Icons.Default.Home,"Chat" to Icons.Default.Chat,"Studio" to Icons.Default.AutoAwesome,"Work" to Icons.Default.Work,"System" to Icons.Default.Settings).forEach{(label,icon)->
-                    NavigationBarItem(selected=page==label||(label=="System"&&page in listOf("Settings","Models")),onClick={
-                        page=when(label){"System"->"Settings";"Work"->{work=true;"Chat"};else->label}
-                        if(label=="Chat"&&chatId==0L)scope.launch{chatId=dao.addConversation(ConversationEntity(title="New conversation"))}
-                    },icon={Icon(icon,null)},label={Text(label,fontSize=10.sp)})
+                bottomBar={NavigationBar(containerColor=Panel){listOf("HAIRA" to Icons.Default.Home,"Studio" to Icons.Default.AutoAwesome,"Actions" to Icons.Default.Search,"Builder" to Icons.Default.Widgets,"System" to Icons.Default.Settings).forEach{(label,icon)->
+                    val destination=when(label){"HAIRA"->"Home";"Actions"->"Skills";"Builder"->"Projects";"System"->"Settings";else->"Studio"}
+                    NavigationBarItem(selected=page==destination||(label=="System"&&page in listOf("Settings","Models","Device")),onClick={page=destination},icon={Icon(icon,null)},label={Text(label,fontSize=10.sp)})
                 }}}
             ){padding->
                 when(page){
-                    "Home"->HomePage(Modifier.padding(padding),provider?.model?:"No online model selected",engine,chats.size,
+                    "Home"->HomeDashboardPage(Modifier.padding(padding),provider?.model?:"No online model selected",engine,
+                        provider?.enabled==true||engine=="Local model ready",memories.size,chats.firstOrNull()?.title?:"",
                         {page="Chat";if(chatId==0L)scope.launch{chatId=dao.addConversation(ConversationEntity(title="New conversation"))}},
-                        {work=true;page="Chat";if(chatId==0L)scope.launch{chatId=dao.addConversation(ConversationEntity(title="Work session"))}},
-                        {page="Models"},{page="Settings"})
+                        {page="Voice"},{page="Skills"},{page="Models"},{page="Settings"})
                     "Chat"->{
                         if(chatId==0L)LaunchedEffect(Unit){chatId=dao.addConversation(ConversationEntity(title="New conversation"))}
                         val messages by dao.messages(chatId).collectAsState(initial=emptyList())
@@ -251,7 +250,12 @@ private fun HairaNextApp() {
                         {m->scope.launch{if(selectedPath==m.path){LocalInference.unload();selectedPath=null;ctx.getSharedPreferences("haira_next",0).edit().remove("model_path").apply()};File(m.path).delete();dao.deleteModel(m)}})
                     "Settings"->SettingsPage(Modifier.padding(padding),provider,{config->scope.launch{runCatching{withContext(Dispatchers.IO){store.save(config)}}.onSuccess{provider=config}.onFailure{failure=it.message}}},
                         {config->scope.launch{runCatching{OpenAiCompatibleClient.complete(config,listOf(RemoteChatMessage("user","Reply OK only.")))}.onSuccess{failure="Connection test passed."}.onFailure{failure=it.message}}},{page="Models"})
-                    "Studio"->InfoPage(Modifier.padding(padding),"HAIRA STUDIO","Image understanding uses a vision-capable provider. Voice input and Android text-to-speech are available in Chat. Text, Markdown, JSON and CSV attachments can be added to conversations.")
+                    "Memory"->MemoryCenterPage(Modifier.padding(padding),memories,chats,notes,{content->scope.launch{dao.addMemory(MemoryEntity(content=content))}},{memory->scope.launch{dao.deleteMemory(memory)}})
+                    "Skills"->SkillsHubPage(Modifier.padding(padding),{page="Voice"},{page="Memory"},{page="Notes"},{page="Models"},{page="Device"},{page="Chat";if(chatId==0L)scope.launch{chatId=dao.addConversation(ConversationEntity(title="New conversation"))}})
+                    "Voice"->VoiceAssistantPage(Modifier.padding(padding),speech,{mic.launch(Manifest.permission.RECORD_AUDIO)},{voice.speak(it)},{speech=null})
+                    "Notes"->NotesCenterPage(Modifier.padding(padding),notes,{note->scope.launch{dao.saveNote(note)}},{note->scope.launch{dao.deleteNote(note)}})
+                    "Device"->DeviceInfoPage(Modifier.padding(padding))
+                    "Studio"->InfoPage(Modifier.padding(padding),"HAIRA STUDIO","Chat supports image attachments with a vision-capable provider, document attachments, voice input and Android text-to-speech.")
                     "Images"->InfoPage(Modifier.padding(padding),"IMAGE GALLERY","Generated and attached image history will be shown here when a provider supports image generation. Image understanding is available from the chat attachment button.")
                     "Library"->InfoPage(Modifier.padding(padding),"YOUR LIBRARY","Files and resources attached to chats are available in their conversation history. Saved project library management is planned for a later verified module.")
                     "Customize"->InfoPage(Modifier.padding(padding),"CUSTOMIZE","HAIRA uses its original H-Core / Quantum H identity. Avatar, theme and voice preferences can be expanded here.")
