@@ -17,6 +17,6 @@ class HairaNextRuntimeSmokeTest {
     @Test
     fun launchesNextApplicationAndRendersHomeShell() {
         assertEquals("com.haira.ai.next", composeRule.activity.packageName)
-        composeRule.onNodeWithText("HAIRA").assertIsDisplayed()
+        composeRule.onNodeWithText("YOUR PERSONAL AI ASSISTANT").assertIsDisplayed()
     }
 }
