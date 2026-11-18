@@ -250,7 +250,7 @@ private fun HairaNextApp() {
                         {m->scope.launch{if(selectedPath==m.path){LocalInference.unload();selectedPath=null;ctx.getSharedPreferences("haira_next",0).edit().remove("model_path").apply()};File(m.path).delete();dao.deleteModel(m)}})
                     "Settings"->SettingsPage(Modifier.padding(padding),provider,{config->scope.launch{runCatching{withContext(Dispatchers.IO){store.save(config)}}.onSuccess{provider=config}.onFailure{failure=it.message}}},
                         {config->scope.launch{runCatching{OpenAiCompatibleClient.complete(config,listOf(RemoteChatMessage("user","Reply OK only.")))}.onSuccess{failure="Connection test passed."}.onFailure{failure=it.message}}},{page="Models"})
-                    "Memory"->MemoryCenterPage(Modifier.padding(padding),memories,chats,notes,{dao.addMemory(MemoryEntity(content=it))},{dao.deleteMemory(it)})
+                    "Memory"->MemoryCenterPage(Modifier.padding(padding),memories,chats,notes,{content->scope.launch{dao.addMemory(MemoryEntity(content=content))}},{memory->scope.launch{dao.deleteMemory(memory)}})
                     "Skills"->SkillsHubPage(Modifier.padding(padding),{page="Voice"},{page="Memory"},{page="Notes"},{page="Models"},{page="Device"},{page="Chat";if(chatId==0L)scope.launch{chatId=dao.addConversation(ConversationEntity(title="New conversation"))}})
                     "Voice"->VoiceAssistantPage(Modifier.padding(padding),speech,{mic.launch(Manifest.permission.RECORD_AUDIO)},{voice.speak(it)},{speech=null})
                     "Notes"->NotesCenterPage(Modifier.padding(padding),notes,{note->scope.launch{dao.saveNote(note)}},{note->scope.launch{dao.deleteNote(note)}})
