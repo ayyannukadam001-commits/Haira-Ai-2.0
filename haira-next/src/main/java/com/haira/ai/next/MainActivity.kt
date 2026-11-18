@@ -197,10 +197,10 @@ private fun HairaNextApp() {
                 }}}
             ){padding->
                 when(page){
-                    "Home"->HomePage(Modifier.padding(padding),provider?.model?:"No online model selected",engine,chats.size,
+                    "Home"->HomeDashboardPage(Modifier.padding(padding),provider?.model?:"No online model selected",engine,
+                        provider?.enabled==true||engine=="Local model ready",memories.size,chats.firstOrNull()?.title?:"",
                         {page="Chat";if(chatId==0L)scope.launch{chatId=dao.addConversation(ConversationEntity(title="New conversation"))}},
-                        {work=true;page="Chat";if(chatId==0L)scope.launch{chatId=dao.addConversation(ConversationEntity(title="Work session"))}},
-                        {page="Models"},{page="Settings"})
+                        {page="Voice"},{page="Skills"},{page="Models"},{page="Settings"})
                     "Chat"->{
                         if(chatId==0L)LaunchedEffect(Unit){chatId=dao.addConversation(ConversationEntity(title="New conversation"))}
                         val messages by dao.messages(chatId).collectAsState(initial=emptyList())
