@@ -69,7 +69,7 @@ jobs:
         with:
           api-level: 34
           emulator-boot-timeout: 900
-          target: default
+          target: google_apis
           arch: x86_64
           profile: pixel_2
           ram-size: 4096M
@@ -79,7 +79,17 @@ jobs:
           script: |
             set -euxo pipefail
             adb wait-for-device
-            timeout 180s bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 3; done'
+            # Wait for Android framework services, not just the boot-completed property.
+            timeout 300s bash -c '
+              until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ] &&
+                    adb shell service check package 2>/dev/null | grep -q found &&
+                    adb shell service check activity 2>/dev/null | grep -q found &&
+                    adb shell service check settings 2>/dev/null | grep -q found; do
+                echo "Waiting for Android framework services..."
+                sleep 5
+              done'
+            sleep 10
+            adb shell pm path android
             adb devices -l
             adb shell df -h /data
             adb logcat -c
