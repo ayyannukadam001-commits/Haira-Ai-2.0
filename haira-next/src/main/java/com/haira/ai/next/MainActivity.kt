@@ -201,7 +201,7 @@ private fun HairaNextApp() {
                     "Home"->HomePage(Modifier.padding(padding),provider?.model?:"No online model selected",engine,chats.size,
                         {page="Chat";if(chatId==0L)scope.launch{chatId=dao.addConversation(ConversationEntity(title="New conversation"))}},
                         {work=true;page="Chat";if(chatId==0L)scope.launch{chatId=dao.addConversation(ConversationEntity(title="Work session"))}},
-                        {page="Models"})
+                        {page="Models"},{page="Settings"})
                     "Chat"->{
                         if(chatId==0L)LaunchedEffect(Unit){chatId=dao.addConversation(ConversationEntity(title="New conversation"))}
                         val messages by dao.messages(chatId).collectAsState(initial=emptyList())
@@ -258,7 +258,7 @@ private fun HairaNextApp() {
                     "Projects"->InfoPage(Modifier.padding(padding),"PROJECT WORKSPACES","Work Mode keeps task instructions and conversation context together. Separate project file spaces are planned.")
                     "Remote"->InfoPage(Modifier.padding(padding),"REMOTE ACTIONS","Remote and device actions are not silently enabled. Any future connected action will require explicit permission.")
                     "Explore"->InfoPage(Modifier.padding(padding),"EXPLORE CAPABILITIES","Connect an API provider or install a GGUF model. Model capability depends on the provider, selected model and device.")
-                    else->HomePage(Modifier.padding(padding),provider?.model?:"No model",engine,chats.size,{page="Chat"},{work=true;page="Chat"},{page="Models"})
+                    else->HomePage(Modifier.padding(padding),provider?.model?:"No model",engine,chats.size,{page="Chat"},{work=true;page="Chat"},{page="Models"},{page="Settings"})
                 }
             }
         }
@@ -278,99 +278,127 @@ private fun BrandMark(size:Int){
 }
 
 @Composable
-private fun HologramAvatar(modifier:Modifier=Modifier){
+private fun HologramAvatar(modifier:Modifier=Modifier,glow:Float=.7f){
     Box(modifier,contentAlignment=Alignment.Center){
-        // Rear hair silhouette and cyan holographic aura
-        Box(Modifier.size(width=166.dp,height=190.dp).clip(RoundedCornerShape(48.dp)).background(Brush.radialGradient(listOf(Color(0xFF174D83),Color(0xFF07152B),Color.Transparent))).border(1.dp,Blue.copy(.45f),RoundedCornerShape(48.dp)))
-        // Shoulder armor and chest projection
-        Box(Modifier.align(Alignment.BottomCenter).padding(bottom=2.dp).size(width=188.dp,height=76.dp).clip(RoundedCornerShape(topStart=78.dp,topEnd=78.dp,bottomStart=20.dp,bottomEnd=20.dp)).background(Brush.verticalGradient(listOf(Color(0xFF183D66),Color(0xFF07111F)))).border(1.5.dp,Blue.copy(.85f),RoundedCornerShape(topStart=78.dp,topEnd=78.dp,bottomStart=20.dp,bottomEnd=20.dp)))
-        Box(Modifier.align(Alignment.BottomCenter).padding(bottom=28.dp).size(26.dp).clip(CircleShape).background(Color(0xFF55E8FF).copy(.18f)).border(1.dp,Color(0xFF75EFFF),CircleShape),contentAlignment=Alignment.Center){Text("H",color=Color(0xFF9CF6FF),fontSize=17.sp,fontWeight=FontWeight.Black)}
-        // Neck and face
-        Box(Modifier.align(Alignment.Center).offset(y=31.dp).size(width=43.dp,height=48.dp).clip(RoundedCornerShape(14.dp)).background(Brush.verticalGradient(listOf(Color(0xFFB9D8E8),Color(0xFF385E82)))))
-        Box(Modifier.align(Alignment.Center).offset(y=(-13).dp).size(width=108.dp,height=132.dp).clip(RoundedCornerShape(48.dp)).background(Brush.verticalGradient(listOf(Color(0xFFE5F3F8),Color(0xFF9BBFD5),Color(0xFF547B9C)))).border(1.dp,Color(0xFF7DEBFF),RoundedCornerShape(48.dp))){
-            Column(Modifier.fillMaxSize().padding(top=48.dp),horizontalAlignment=Alignment.CenterHorizontally){
-                Row(Modifier.fillMaxWidth().padding(horizontal=17.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
-                    Box(Modifier.size(width=19.dp,height=8.dp).clip(RoundedCornerShape(50)).background(Color(0xFF087FC6)))
-                    Box(Modifier.size(width=19.dp,height=8.dp).clip(RoundedCornerShape(50)).background(Color(0xFF087FC6)))
+        // Layered holographic halo and rear helmet shell
+        Box(Modifier.size(width=194.dp,height=210.dp).clip(RoundedCornerShape(48.dp)).background(Brush.radialGradient(listOf(Color(0xFF17649B).copy(alpha=.30f*glow),Color(0xFF07182D).copy(alpha=.88f),Color.Transparent))).border(1.dp,Blue.copy(alpha=.38f*glow),RoundedCornerShape(48.dp)))
+        Box(Modifier.align(Alignment.Center).offset(y=(-4).dp).size(width=150.dp,height=174.dp).clip(RoundedCornerShape(topStart=70.dp,topEnd=70.dp,bottomStart=42.dp,bottomEnd=42.dp)).background(Brush.verticalGradient(listOf(Color(0xFF284E70),Color(0xFF10243B),Color(0xFF07111F)))).border(1.5.dp,Color(0xFF67DFFF).copy(alpha=.8f*glow),RoundedCornerShape(topStart=70.dp,topEnd=70.dp,bottomStart=42.dp,bottomEnd=42.dp)))
+        // Shoulder armor and chest core
+        Box(Modifier.align(Alignment.BottomCenter).padding(bottom=2.dp).size(width=202.dp,height=74.dp).clip(RoundedCornerShape(topStart=84.dp,topEnd=84.dp,bottomStart=22.dp,bottomEnd=22.dp)).background(Brush.verticalGradient(listOf(Color(0xFF1C466B),Color(0xFF0B1B2C)))).border(1.5.dp,Blue.copy(alpha=.85f*glow),RoundedCornerShape(topStart=84.dp,topEnd=84.dp,bottomStart=22.dp,bottomEnd=22.dp)))
+        Box(Modifier.align(Alignment.BottomCenter).padding(bottom=25.dp).size(34.dp).clip(CircleShape).background(Color(0xFF55E8FF).copy(alpha=.20f*glow)).border(1.5.dp,Color(0xFF8DF5FF).copy(alpha=glow),CircleShape),contentAlignment=Alignment.Center){
+            Box(Modifier.size(19.dp).clip(CircleShape).background(Brush.radialGradient(listOf(Color(0xFFE8FFFF),Color(0xFF27BFFF),Color(0xFF07558B)))))
+        }
+        // Neck and central dark faceplate
+        Box(Modifier.align(Alignment.Center).offset(y=53.dp).size(width=56.dp,height=47.dp).clip(RoundedCornerShape(13.dp)).background(Brush.verticalGradient(listOf(Color(0xFF345C7C),Color(0xFF0C1C2E)))))
+        Box(Modifier.align(Alignment.Center).offset(y=(-9).dp).size(width=112.dp,height=132.dp).clip(RoundedCornerShape(topStart=48.dp,topEnd=48.dp,bottomStart=34.dp,bottomEnd=34.dp)).background(Brush.verticalGradient(listOf(Color(0xFFB5D6E6),Color(0xFF527D9D),Color(0xFF17334E)))).border(1.5.dp,Color(0xFF9CF3FF).copy(alpha=.9f*glow),RoundedCornerShape(topStart=48.dp,topEnd=48.dp,bottomStart=34.dp,bottomEnd=34.dp)))
+        Box(Modifier.align(Alignment.Center).offset(y=(-8).dp).size(width=91.dp,height=105.dp).clip(RoundedCornerShape(topStart=39.dp,topEnd=39.dp,bottomStart=28.dp,bottomEnd=28.dp)).background(Brush.verticalGradient(listOf(Color(0xFF132C45),Color(0xFF071522),Color(0xFF0C2034)))).border(1.dp,Blue.copy(alpha=.8f*glow),RoundedCornerShape(topStart=39.dp,topEnd=39.dp,bottomStart=28.dp,bottomEnd=28.dp))){
+            Column(Modifier.fillMaxSize().padding(top=39.dp),horizontalAlignment=Alignment.CenterHorizontally){
+                // One continuous luminous visor with two brighter eye cores
+                Box(Modifier.fillMaxWidth().padding(horizontal=10.dp).height(13.dp).clip(RoundedCornerShape(50)).background(Brush.horizontalGradient(listOf(Color(0xFF0876B8),Color(0xFF8BF4FF),Color(0xFF0876B8)))),contentAlignment=Alignment.Center){
+                    Row(Modifier.fillMaxWidth().padding(horizontal=9.dp),horizontalArrangement=Arrangement.SpaceBetween){
+                        Box(Modifier.size(width=13.dp,height=4.dp).clip(CircleShape).background(Color(0xFFE4FFFF)))
+                        Box(Modifier.size(width=13.dp,height=4.dp).clip(CircleShape).background(Color(0xFFE4FFFF)))
+                    }
                 }
-                Spacer(Modifier.height(13.dp))
-                Box(Modifier.size(width=22.dp,height=4.dp).clip(RoundedCornerShape(50)).background(Color(0xFFB85F78)))
+                Spacer(Modifier.height(14.dp))
+                Box(Modifier.size(width=28.dp,height=3.dp).clip(CircleShape).background(Color(0xFF54CFF5).copy(alpha=.8f)))
+                Spacer(Modifier.height(8.dp))
+                Box(Modifier.size(width=42.dp,height=2.dp).clip(CircleShape).background(Color(0xFF3C7698).copy(alpha=.8f)))
             }
         }
-        // Dark swept fringe, headset ear cups and luminous side rails
-        Box(Modifier.align(Alignment.TopCenter).padding(top=29.dp).size(width=120.dp,height=42.dp).clip(RoundedCornerShape(topStart=60.dp,topEnd=60.dp,bottomStart=18.dp,bottomEnd=18.dp)).background(Brush.verticalGradient(listOf(Color(0xFF07101F),Color(0xFF172D4C)))))
-        Row(Modifier.align(Alignment.Center).offset(y=(-12).dp).fillMaxWidth().padding(horizontal=27.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
-            Box(Modifier.size(width=17.dp,height=53.dp).clip(RoundedCornerShape(9.dp)).background(Brush.verticalGradient(listOf(Color(0xFF64E9FF),Color(0xFF145A9C)))).border(1.dp,Color(0xFF9AF5FF),RoundedCornerShape(9.dp)))
-            Box(Modifier.size(width=17.dp,height=53.dp).clip(RoundedCornerShape(9.dp)).background(Brush.verticalGradient(listOf(Color(0xFF64E9FF),Color(0xFF145A9C)))).border(1.dp,Color(0xFF9AF5FF),RoundedCornerShape(9.dp)))
+        // Angular cheek plates, ear modules and crown light
+        Row(Modifier.align(Alignment.Center).offset(y=14.dp).fillMaxWidth().padding(horizontal=24.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+            Box(Modifier.size(width=22.dp,height=62.dp).clip(RoundedCornerShape(topStart=7.dp,topEnd=15.dp,bottomStart=15.dp,bottomEnd=7.dp)).background(Brush.verticalGradient(listOf(Color(0xFF5ACFEA),Color(0xFF164C76)))).border(1.dp,Color(0xFF9CF5FF).copy(alpha=glow),RoundedCornerShape(7.dp)))
+            Box(Modifier.size(width=22.dp,height=62.dp).clip(RoundedCornerShape(topStart=15.dp,topEnd=7.dp,bottomStart=7.dp,bottomEnd=15.dp)).background(Brush.verticalGradient(listOf(Color(0xFF5ACFEA),Color(0xFF164C76)))).border(1.dp,Color(0xFF9CF5FF).copy(alpha=glow),RoundedCornerShape(7.dp)))
         }
-        Box(Modifier.align(Alignment.TopCenter).padding(top=11.dp).size(width=5.dp,height=20.dp).clip(RoundedCornerShape(50)).background(Color(0xFF67EFFF)))
+        Box(Modifier.align(Alignment.TopCenter).padding(top=17.dp).size(width=8.dp,height=24.dp).clip(RoundedCornerShape(50)).background(Brush.verticalGradient(listOf(Color(0xFFE5FFFF),Color(0xFF39C9F7)))))
+        Box(Modifier.align(Alignment.TopCenter).padding(top=44.dp).size(width=64.dp,height=3.dp).clip(CircleShape).background(Color(0xFF6CEBFF).copy(alpha=.7f*glow)))
+        // Small illuminated side status bars
+        Column(Modifier.align(Alignment.CenterStart).padding(start=5.dp).offset(y=3.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
+            repeat(3){Box(Modifier.size(width=7.dp,height=3.dp).clip(CircleShape).background(Blue.copy(alpha=(.35f+it*.18f)*glow)))}
+        }
+        Column(Modifier.align(Alignment.CenterEnd).padding(end=5.dp).offset(y=3.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
+            repeat(3){Box(Modifier.size(width=7.dp,height=3.dp).clip(CircleShape).background(Red.copy(alpha=(.35f+it*.18f)*glow)))}
+        }
     }
 }
 
 @Composable
-private fun HomePage(modifier:Modifier,model:String,engine:String,chats:Int,onChat:()->Unit,onWork:()->Unit,onModels:()->Unit){
+private fun HomePage(modifier:Modifier,model:String,engine:String,chats:Int,onChat:()->Unit,onWork:()->Unit,onModels:()->Unit,onSettings:()->Unit){
     val anim= rememberInfiniteTransition(label="haira-hud")
-    val glow by anim.animateFloat(.35f,.95f,infiniteRepeatable(tween(1900),RepeatMode.Reverse),label="hud-glow")
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=16.dp, vertical=10.dp)){
+    val glow by anim.animateFloat(.42f,.96f,infiniteRepeatable(tween(2100),RepeatMode.Reverse),label="hud-glow")
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=15.dp, vertical=9.dp)){
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
             Column(Modifier.weight(1f)){
-                Text("HAIRA AI",fontSize=27.sp,fontWeight=FontWeight.Black,letterSpacing=2.5.sp,color=Txt)
-                Text("YOUR PERSONAL AI ASSISTANT",fontSize=9.sp,letterSpacing=1.8.sp,color=Muted)
+                Text("H A I R A",fontSize=25.sp,fontWeight=FontWeight.Black,letterSpacing=2.8.sp,color=Txt)
+                Text("PERSONAL AI • SYSTEM INTERFACE",fontSize=9.sp,letterSpacing=1.45.sp,color=Muted)
             }
-            Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(Panel).border(1.dp,Blue.copy(.55f),RoundedCornerShape(14.dp)),contentAlignment=Alignment.Center){
-                Icon(Icons.Default.Settings,"Settings",tint=Blue)
+            Surface(onClick=onSettings,shape=RoundedCornerShape(14.dp),color=Panel,border=BorderStroke(1.dp,Blue.copy(.55f))){
+                Box(Modifier.size(43.dp),contentAlignment=Alignment.Center){Icon(Icons.Default.Settings,"Settings",tint=Blue)}
             }
         }
-        Spacer(Modifier.height(13.dp))
-        Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
-            HudInfoCard("STATUS",if(model!="No online model selected")"ONLINE" else "READY",Icons.Default.Circle,Modifier.weight(1f),Color(0xFF25E6A2))
-            HudInfoCard("MEMORY","$chats CHATS",Icons.Default.Psychology,Modifier.weight(1f),Blue)
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+            Surface(Modifier.weight(1f),shape=RoundedCornerShape(13.dp),color=Color(0xFF10251F),border=BorderStroke(1.dp,Color(0xFF25E6A2).copy(.38f))){
+                Row(Modifier.padding(horizontal=11.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically){
+                    Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF25E6A2)))
+                    Spacer(Modifier.width(7.dp));Text(if(model!="No online model selected")"ONLINE LINK" else "SYSTEM READY",fontSize=9.sp,color=Color(0xFF75E6BC),fontWeight=FontWeight.Bold,letterSpacing=1.sp)
+                }
+            }
+            Surface(Modifier.weight(1f),shape=RoundedCornerShape(13.dp),color=Panel,border=BorderStroke(1.dp,Blue.copy(.28f))){
+                Row(Modifier.padding(horizontal=11.dp,vertical=9.dp),verticalAlignment=Alignment.CenterVertically){
+                    Icon(Icons.Default.Forum,null,tint=Blue,modifier=Modifier.size(14.dp));Spacer(Modifier.width(7.dp))
+                    Text("$chats SAVED CHATS",fontSize=9.sp,color=Txt,fontWeight=FontWeight.Bold,letterSpacing=.8.sp)
+                }
+            }
         }
-        Spacer(Modifier.height(10.dp))
-        Box(Modifier.fillMaxWidth().height(360.dp).clip(RoundedCornerShape(26.dp)).background(Brush.verticalGradient(listOf(Color(0xFF101D35),Color(0xFF080D19),Ink))).border(1.dp,Blue.copy(.45f),RoundedCornerShape(26.dp)),contentAlignment=Alignment.Center){
+        Spacer(Modifier.height(12.dp))
+        Box(Modifier.fillMaxWidth().height(382.dp).clip(RoundedCornerShape(27.dp)).background(Brush.verticalGradient(listOf(Color(0xFF10243B),Color(0xFF080F1C),Ink))).border(1.dp,Blue.copy(alpha=.42f*glow),RoundedCornerShape(27.dp))){
             Canvas(Modifier.fillMaxSize()){
-                val cx=size.width/2;val cy=size.height*.43f
+                val cx=size.width/2;val cy=size.height*.43f;val r=size.minDimension*.43f
                 val center=androidx.compose.ui.geometry.Offset(cx,cy)
-                drawCircle(Blue.copy(alpha=glow*.10f),radius=size.minDimension*.47f,center=center)
-                drawCircle(Red.copy(alpha=glow*.30f),radius=size.minDimension*.43f,center=center,style=Stroke(2.5.dp.toPx()))
-                drawCircle(Blue.copy(alpha=.78f),radius=size.minDimension*.36f,center=center,style=Stroke(1.6.dp.toPx()))
-                drawCircle(Blue.copy(alpha=glow*.32f),radius=size.minDimension*.29f,center=center,style=Stroke(8.dp.toPx()))
-                drawArc(Blue.copy(alpha=.95f),startAngle=glow*90f,sweepAngle=105f,useCenter=false,topLeft=androidx.compose.ui.geometry.Offset(cx-size.minDimension*.40f,cy-size.minDimension*.40f),size=androidx.compose.ui.geometry.Size(size.minDimension*.80f,size.minDimension*.80f),style=Stroke(3.dp.toPx()))
-                drawLine(Blue.copy(alpha=.32f),androidx.compose.ui.geometry.Offset(18.dp.toPx(),cy),androidx.compose.ui.geometry.Offset(size.width-18.dp.toPx(),cy),1.dp.toPx())
-                drawCircle(Color(0xFF8DEBFF).copy(alpha=glow),radius=3.dp.toPx(),center=androidx.compose.ui.geometry.Offset(cx+size.minDimension*.36f,cy-size.minDimension*.12f))
-                drawCircle(Color(0xFFFF4968).copy(alpha=glow),radius=2.5.dp.toPx(),center=androidx.compose.ui.geometry.Offset(cx-size.minDimension*.34f,cy+size.minDimension*.18f))
+                drawCircle(Blue.copy(alpha=.08f*glow),radius=r,center=center)
+                drawCircle(Red.copy(alpha=.24f*glow),radius=r*.91f,center=center,style=Stroke(2.dp.toPx()))
+                drawCircle(Blue.copy(alpha=.62f),radius=r*.79f,center=center,style=Stroke(1.2.dp.toPx()))
+                drawCircle(Blue.copy(alpha=.20f*glow),radius=r*.68f,center=center,style=Stroke(7.dp.toPx()))
+                drawArc(Blue.copy(alpha=.95f*glow),startAngle=glow*72f,sweepAngle=112f,useCenter=false,topLeft=androidx.compose.ui.geometry.Offset(cx-r*.91f,cy-r*.91f),size=androidx.compose.ui.geometry.Size(r*1.82f,r*1.82f),style=Stroke(3.dp.toPx()))
+                drawArc(Red.copy(alpha=.8f*glow),startAngle=210f,sweepAngle=55f,useCenter=false,topLeft=androidx.compose.ui.geometry.Offset(cx-r*.79f,cy-r*.79f),size=androidx.compose.ui.geometry.Size(r*1.58f,r*1.58f),style=Stroke(2.dp.toPx()))
+                drawLine(Blue.copy(alpha=.28f),androidx.compose.ui.geometry.Offset(15.dp.toPx(),cy),androidx.compose.ui.geometry.Offset(size.width-15.dp.toPx(),cy),1.dp.toPx())
+                drawCircle(Color(0xFF8DEBFF).copy(alpha=glow),radius=3.dp.toPx(),center=androidx.compose.ui.geometry.Offset(cx+r*.84f,cy-r*.22f))
+                drawCircle(Color(0xFFFF4968).copy(alpha=glow),radius=2.5.dp.toPx(),center=androidx.compose.ui.geometry.Offset(cx-r*.78f,cy+r*.36f))
             }
-            Column(horizontalAlignment=Alignment.CenterHorizontally,modifier=Modifier.padding(top=4.dp)){
-                HologramAvatar(Modifier.size(width=218.dp,height=228.dp))
-                Spacer(Modifier.height(2.dp))
-                Text("HELLO! I'M HAIRA",fontSize=18.sp,fontWeight=FontWeight.Bold,color=Txt,letterSpacing=1.sp)
-                Text("Your AI. Your way.",fontSize=12.sp,color=Blue)
+            Column(Modifier.align(Alignment.Center).padding(top=4.dp),horizontalAlignment=Alignment.CenterHorizontally){
+                HologramAvatar(Modifier.size(width=230.dp,height=242.dp),glow)
+                Spacer(Modifier.height(4.dp))
+                Text("HAIRA",fontSize=21.sp,fontWeight=FontWeight.Black,color=Txt,letterSpacing=3.sp)
+                Text("HOLOGRAPHIC CORE • ACTIVE",fontSize=9.sp,color=Blue,letterSpacing=1.35.sp)
             }
-            Text("H-CORE • HOLOGRAM ACTIVE",fontSize=9.sp,color=Blue,letterSpacing=1.4.sp,modifier=Modifier.align(Alignment.BottomCenter).padding(bottom=15.dp))
+            Row(Modifier.align(Alignment.TopStart).padding(13.dp),verticalAlignment=Alignment.CenterVertically){
+                Icon(Icons.Default.Sensors,null,tint=Color(0xFF67EFFF),modifier=Modifier.size(14.dp))
+                Spacer(Modifier.width(5.dp));Text("H-CORE 2.1",fontSize=9.sp,color=Color(0xFF8DEBFF),letterSpacing=1.sp)
+            }
+            Text("AI COMPANION",fontSize=9.sp,color=Muted,letterSpacing=1.5.sp,modifier=Modifier.align(Alignment.BottomStart).padding(start=15.dp,bottom=13.dp))
+            Text("SECURE • READY",fontSize=9.sp,color=Color(0xFFFF718A),letterSpacing=1.2.sp,modifier=Modifier.align(Alignment.BottomEnd).padding(end=15.dp,bottom=13.dp))
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
+            Button(onClick=onChat,modifier=Modifier.weight(1f).height(57.dp),shape=RoundedCornerShape(17.dp),colors=ButtonDefaults.buttonColors(containerColor=Color(0xFFFF315B),contentColor=Color.White)){
+                Icon(Icons.Default.Chat,null);Spacer(Modifier.width(7.dp));Text("Start Chat",fontWeight=FontWeight.Bold)
+            }
+            OutlinedButton(onClick=onWork,modifier=Modifier.weight(1f).height(57.dp),shape=RoundedCornerShape(17.dp),border=BorderStroke(1.dp,Blue.copy(.72f))){
+                Icon(Icons.Default.Work,null,tint=Blue);Spacer(Modifier.width(7.dp));Text("Work Mode",color=Txt)
+            }
+        }
+        Spacer(Modifier.height(11.dp))
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
             HudInfoCard("ONLINE MODEL",model,Icons.Default.Cloud,Modifier.weight(1f),Blue)
             HudInfoCard("LOCAL ENGINE",engine,Icons.Default.Memory,Modifier.weight(1f),Blue)
         }
-        Spacer(Modifier.height(10.dp))
-        HudInfoCard("CONVERSATION HISTORY","$chats saved conversations",Icons.Default.Forum,Modifier.fillMaxWidth(),Blue)
-        Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
-            Button(onClick=onChat,modifier=Modifier.weight(1f).height(58.dp),shape=RoundedCornerShape(18.dp),colors=ButtonDefaults.buttonColors(containerColor=Color(0xFFFF315B),contentColor=Color.White)){
-                Icon(Icons.Default.Chat,null);Spacer(Modifier.width(7.dp));Text("Quick Chat",fontWeight=FontWeight.Bold)
-            }
-            OutlinedButton(onClick=onModels,modifier=Modifier.weight(1f).height(58.dp),shape=RoundedCornerShape(18.dp),border=BorderStroke(1.dp,Blue.copy(.7f))){
-                Icon(Icons.Default.Memory,null,tint=Blue);Spacer(Modifier.width(7.dp));Text("Models",color=Txt)
-            }
-        }
         Spacer(Modifier.height(9.dp))
-        OutlinedButton(onClick=onWork,modifier=Modifier.fillMaxWidth().height(52.dp),shape=RoundedCornerShape(16.dp),border=BorderStroke(1.dp,Red.copy(.65f))){
-            Icon(Icons.Default.Work,null,tint=Red);Spacer(Modifier.width(8.dp));Text("Enter Work Mode",color=Red,fontWeight=FontWeight.SemiBold)
+        OutlinedButton(onClick=onModels,modifier=Modifier.fillMaxWidth().height(47.dp),shape=RoundedCornerShape(15.dp),border=BorderStroke(1.dp,Red.copy(.55f))){
+            Icon(Icons.Default.Tune,null,tint=Red);Spacer(Modifier.width(7.dp));Text("AI MODEL & PROVIDER SETTINGS",color=Txt,fontSize=11.sp,letterSpacing=.6.sp)
         }
-        Spacer(Modifier.height(12.dp))
-        Text("SYSTEM OVERVIEW",fontSize=10.sp,color=Blue,letterSpacing=2.sp,fontWeight=FontWeight.Bold)
-        Text("ℹ️  AI provider and local engine status are shown above. Connect a provider or load a model before chatting.",fontSize=11.sp,color=Muted,lineHeight=17.sp,modifier=Modifier.padding(top=6.dp,bottom=10.dp))
+        Text("ℹ️  HAIRA is ready when an online provider is connected or a local model is loaded.",fontSize=10.sp,color=Muted,lineHeight=15.sp,modifier=Modifier.padding(top=10.dp,bottom=5.dp))
     }
 }
 @Composable
