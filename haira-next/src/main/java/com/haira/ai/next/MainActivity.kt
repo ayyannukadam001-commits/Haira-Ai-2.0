@@ -280,10 +280,11 @@ private fun BrandMark(size:Int){
 private fun HomePage(modifier:Modifier,model:String,engine:String,chats:Int,onChat:()->Unit,onWork:()->Unit,onModels:()->Unit){
     val anim= rememberInfiniteTransition(label="haira-hud")
     val glow by anim.animateFloat(.35f,.95f,infiniteRepeatable(tween(1900),RepeatMode.Reverse),label="hud-glow")
+    val scan by anim.animateFloat(-1f,1f,infiniteRepeatable(tween(3600,easing=LinearEasing),RepeatMode.Restart),label="hud-scan")
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=16.dp, vertical=10.dp)){
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
             Column(Modifier.weight(1f)){
-                Text("HAIRA AI",fontSize=27.sp,fontWeight=FontWeight.Black,letterSpacing=2.5.sp,color=Txt)
+                Text("HAIRA AI 2.0",fontSize=27.sp,fontWeight=FontWeight.Black,letterSpacing=2.2.sp,color=Txt)
                 Text("YOUR PERSONAL AI ASSISTANT",fontSize=9.sp,letterSpacing=1.8.sp,color=Muted)
             }
             Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(Panel).border(1.dp,Blue.copy(.55f),RoundedCornerShape(14.dp)),contentAlignment=Alignment.Center){
@@ -296,22 +297,35 @@ private fun HomePage(modifier:Modifier,model:String,engine:String,chats:Int,onCh
             HudInfoCard("MEMORY","$chats CHATS",Icons.Default.Psychology,Modifier.weight(1f),Blue)
         }
         Spacer(Modifier.height(10.dp))
-        Box(Modifier.fillMaxWidth().height(310.dp).clip(RoundedCornerShape(26.dp)).background(Brush.verticalGradient(listOf(Color(0xFF101D35),Color(0xFF080D19),Ink))).border(1.dp,Blue.copy(.45f),RoundedCornerShape(26.dp)),contentAlignment=Alignment.Center){
+        Box(
+            Modifier.fillMaxWidth().height(365.dp).clip(RoundedCornerShape(26.dp))
+                .background(Brush.verticalGradient(listOf(Color(0xFF102344),Color(0xFF080D19),Ink)))
+                .border(1.dp,Blue.copy(.52f),RoundedCornerShape(26.dp)),
+            contentAlignment=Alignment.Center
+        ){
             Canvas(Modifier.fillMaxSize()){
-                val cx=size.width/2;val cy=size.height*.48f
-                drawCircle(Blue.copy(alpha=glow*.08f),radius=size.minDimension*.46f,center=androidx.compose.ui.geometry.Offset(cx,cy))
-                drawCircle(Red.copy(alpha=glow*.28f),radius=size.minDimension*.39f,center=androidx.compose.ui.geometry.Offset(cx,cy),style=Stroke(2.dp.toPx()))
-                drawCircle(Blue.copy(alpha=.72f),radius=size.minDimension*.32f,center=androidx.compose.ui.geometry.Offset(cx,cy),style=Stroke(1.4.dp.toPx()))
-                drawCircle(Blue.copy(alpha=glow*.25f),radius=size.minDimension*.24f,center=androidx.compose.ui.geometry.Offset(cx,cy),style=Stroke(7.dp.toPx()))
-                drawLine(Blue.copy(alpha=.35f),androidx.compose.ui.geometry.Offset(18.dp.toPx(),cy),androidx.compose.ui.geometry.Offset(size.width-18.dp.toPx(),cy),1.dp.toPx())
+                val cx=size.width/2
+                val cy=size.height*.47f
+                drawCircle(Brush.radialGradient(listOf(Blue.copy(alpha=glow*.28f),Blue.copy(alpha=.06f),Color.Transparent),center=androidx.compose.ui.geometry.Offset(cx,cy),radius=size.minDimension*.49f),radius=size.minDimension*.49f,center=androidx.compose.ui.geometry.Offset(cx,cy))
+                drawCircle(Red.copy(alpha=glow*.24f),radius=size.minDimension*.43f,center=androidx.compose.ui.geometry.Offset(cx,cy),style=Stroke(2.dp.toPx()))
+                drawCircle(Blue.copy(alpha=.62f),radius=size.minDimension*.36f,center=androidx.compose.ui.geometry.Offset(cx,cy),style=Stroke(1.5.dp.toPx()))
+                drawCircle(Blue.copy(alpha=glow*.3f),radius=size.minDimension*.29f,center=androidx.compose.ui.geometry.Offset(cx,cy),style=Stroke(8.dp.toPx()))
+                drawLine(Blue.copy(alpha=.28f),androidx.compose.ui.geometry.Offset(18.dp.toPx(),cy+scan*42.dp.toPx()),androidx.compose.ui.geometry.Offset(size.width-18.dp.toPx(),cy+scan*42.dp.toPx()),1.dp.toPx())
+                for(i in 0..11){
+                    val angle=(i*30f)*Math.PI/180.0
+                    val r=size.minDimension*.40f
+                    val x=cx+kotlin.math.cos(angle).toFloat()*r
+                    val y=cy+kotlin.math.sin(angle).toFloat()*r
+                    drawCircle(Blue.copy(alpha=glow*.8f),radius=2.1.dp.toPx(),center=androidx.compose.ui.geometry.Offset(x,y))
+                }
             }
-            Column(horizontalAlignment=Alignment.CenterHorizontally){
-                Box(Modifier.size(116.dp).clip(RoundedCornerShape(30.dp)).background(Brush.linearGradient(listOf(Color(0xFF172B49),Color(0xFF171323)))).border(1.5.dp,Blue.copy(.8f),RoundedCornerShape(30.dp)),contentAlignment=Alignment.Center){BrandMark(76)}
-                Spacer(Modifier.height(14.dp))
+            Column(horizontalAlignment=Alignment.CenterHorizontally,modifier=Modifier.padding(top=4.dp)){
+                HologramAvatar(Modifier.width(246.dp).height(260.dp),glow)
+                Spacer(Modifier.height(1.dp))
                 Text("HELLO! I'M HAIRA",fontSize=18.sp,fontWeight=FontWeight.Bold,color=Txt,letterSpacing=1.sp)
                 Text("Your AI. Your way.",fontSize=12.sp,color=Blue)
             }
-            Text("H-CORE • SYSTEM ACTIVE",fontSize=9.sp,color=Blue,letterSpacing=1.4.sp,modifier=Modifier.align(Alignment.BottomCenter).padding(bottom=15.dp))
+            Text("H-CORE • HOLOGRAM ONLINE",fontSize=9.sp,color=Blue,letterSpacing=1.4.sp,modifier=Modifier.align(Alignment.BottomCenter).padding(bottom=13.dp))
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
@@ -336,6 +350,57 @@ private fun HomePage(modifier:Modifier,model:String,engine:String,chats:Int,onCh
         Spacer(Modifier.height(12.dp))
         Text("SYSTEM OVERVIEW",fontSize=10.sp,color=Blue,letterSpacing=2.sp,fontWeight=FontWeight.Bold)
         Text("ℹ️  AI provider and local engine status are shown above. Connect a provider or load a model before chatting.",fontSize=11.sp,color=Muted,lineHeight=17.sp,modifier=Modifier.padding(top=6.dp,bottom=10.dp))
+    }
+}
+
+@Composable
+private fun HologramAvatar(modifier:Modifier,glow:Float){
+    Canvas(modifier){
+        val w=size.width
+        val h=size.height
+        val cx=w*.5f
+        // Soft holographic aura and shoulder silhouette.
+        drawCircle(Brush.radialGradient(listOf(Blue.copy(alpha=.30f*glow),Blue.copy(alpha=.08f),Color.Transparent),center=androidx.compose.ui.geometry.Offset(cx,h*.43f),radius=w*.52f),radius=w*.52f,center=androidx.compose.ui.geometry.Offset(cx,h*.43f))
+        val torso=Path().apply{
+            moveTo(w*.12f,h*.98f); cubicTo(w*.14f,h*.78f,w*.28f,h*.70f,w*.39f,h*.68f)
+            lineTo(w*.61f,h*.68f); cubicTo(w*.75f,h*.70f,w*.88f,h*.79f,w*.90f,h*.98f); close()
+        }
+        drawPath(torso,Brush.linearGradient(listOf(Color(0xFF162B4C),Color(0xFF050B18)),start=androidx.compose.ui.geometry.Offset(0f,h*.65f),end=androidx.compose.ui.geometry.Offset(w,h)))
+        drawPath(torso,Blue.copy(alpha=.9f*glow),style=Stroke(2.dp.toPx()))
+        // Long hair behind the face.
+        val hair=Path().apply{
+            moveTo(cx,h*.04f); cubicTo(w*.17f,h*.00f,w*.06f,h*.22f,w*.10f,h*.62f)
+            cubicTo(w*.10f,h*.79f,w*.17f,h*.86f,w*.24f,h*.76f)
+            lineTo(w*.76f,h*.76f); cubicTo(w*.84f,h*.86f,w*.92f,h*.77f,w*.90f,h*.59f)
+            cubicTo(w*.96f,h*.20f,w*.82f,h*.00f,cx,h*.04f); close()
+        }
+        drawPath(hair,Brush.linearGradient(listOf(Color(0xFF07152F),Color(0xFF123D70),Color(0xFF07152F))))
+        drawPath(hair,Blue.copy(alpha=.75f*glow),style=Stroke(2.dp.toPx()))
+        // Neck and face.
+        drawRoundRect(Brush.linearGradient(listOf(Color(0xFFE8D9E7),Color(0xFF7DAED0))),topLeft=androidx.compose.ui.geometry.Offset(w*.43f,h*.57f),size=androidx.compose.ui.geometry.Size(w*.14f,h*.17f),cornerRadius=androidx.compose.ui.geometry.CornerRadius(12.dp.toPx()))
+        drawOval(Brush.linearGradient(listOf(Color(0xFFFFE9EC),Color(0xFFB6CBE2),Color(0xFF769CBF))),topLeft=androidx.compose.ui.geometry.Offset(w*.29f,h*.16f),size=androidx.compose.ui.geometry.Size(w*.42f,h*.47f))
+        drawOval(Blue.copy(alpha=.55f*glow),topLeft=androidx.compose.ui.geometry.Offset(w*.29f,h*.16f),size=androidx.compose.ui.geometry.Size(w*.42f,h*.47f),style=Stroke(1.5.dp.toPx()))
+        // Eyes, brows, nose and mouth.
+        drawLine(Color(0xFF203B66),androidx.compose.ui.geometry.Offset(w*.36f,h*.37f),androidx.compose.ui.geometry.Offset(w*.46f,h*.36f),2.dp.toPx())
+        drawLine(Color(0xFF203B66),androidx.compose.ui.geometry.Offset(w*.54f,h*.36f),androidx.compose.ui.geometry.Offset(w*.64f,h*.37f),2.dp.toPx())
+        drawOval(Blue,androidx.compose.ui.geometry.Offset(w*.365f,h*.385f),androidx.compose.ui.geometry.Size(w*.095f,h*.035f))
+        drawOval(Blue,androidx.compose.ui.geometry.Offset(w*.54f,h*.385f),androidx.compose.ui.geometry.Size(w*.095f,h*.035f))
+        drawCircle(Color.White,radius=2.2.dp.toPx(),center=androidx.compose.ui.geometry.Offset(w*.415f,h*.40f))
+        drawCircle(Color.White,radius=2.2.dp.toPx(),center=androidx.compose.ui.geometry.Offset(w*.59f,h*.40f))
+        drawLine(Color(0xFF7896B5),androidx.compose.ui.geometry.Offset(cx,h*.42f),androidx.compose.ui.geometry.Offset(w*.49f,h*.49f),1.2.dp.toPx())
+        val lips=Path().apply{moveTo(w*.45f,h*.535f);quadraticTo(cx,h*.56f,w*.55f,h*.535f)}
+        drawPath(lips,Color(0xFFB45E83),style=Stroke(2.dp.toPx()))
+        // Front hair fringe and illuminated headset.
+        val fringe=Path().apply{moveTo(w*.30f,h*.30f);cubicTo(w*.31f,h*.12f,w*.43f,h*.15f,cx,h*.24f);cubicTo(w*.57f,h*.14f,w*.68f,h*.18f,w*.70f,h*.31f);cubicTo(w*.63f,h*.27f,w*.58f,h*.31f,w*.53f,h*.34f);cubicTo(w*.47f,h*.27f,w*.42f,h*.30f,w*.30f,h*.30f);close()}
+        drawPath(fringe,Brush.linearGradient(listOf(Color(0xFF07152D),Color(0xFF1C4E83),Color(0xFF07152D))))
+        drawPath(fringe,Blue.copy(alpha=.8f*glow),style=Stroke(1.5.dp.toPx()))
+        drawRoundRect(Blue.copy(alpha=.9f),topLeft=androidx.compose.ui.geometry.Offset(w*.20f,h*.31f),size=androidx.compose.ui.geometry.Size(w*.075f,h*.19f),cornerRadius=androidx.compose.ui.geometry.CornerRadius(9.dp.toPx()))
+        drawRoundRect(Blue.copy(alpha=.9f),topLeft=androidx.compose.ui.geometry.Offset(w*.725f,h*.31f),size=androidx.compose.ui.geometry.Size(w*.075f,h*.19f),cornerRadius=androidx.compose.ui.geometry.CornerRadius(9.dp.toPx()))
+        drawLine(Blue.copy(alpha=.9f),androidx.compose.ui.geometry.Offset(w*.23f,h*.27f),androidx.compose.ui.geometry.Offset(w*.77f,h*.27f),2.dp.toPx())
+        // Chest emblem and light seams.
+        drawLine(Blue.copy(alpha=.9f),androidx.compose.ui.geometry.Offset(w*.36f,h*.82f),androidx.compose.ui.geometry.Offset(w*.64f,h*.82f),2.dp.toPx())
+        drawCircle(Blue.copy(alpha=glow),radius=8.dp.toPx(),center=androidx.compose.ui.geometry.Offset(cx,h*.84f))
+        drawCircle(Color.White,radius=2.dp.toPx(),center=androidx.compose.ui.geometry.Offset(cx,h*.84f))
     }
 }
 @Composable
