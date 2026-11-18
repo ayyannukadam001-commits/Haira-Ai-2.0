@@ -232,3 +232,116 @@ private fun DeviceRow(label: String, value: String) {
         }
     }
 }
+
+
+@Composable
+fun HomeDashboardPage(
+    modifier: Modifier,
+    model: String,
+    engine: String,
+    online: Boolean,
+    memoryCount: Int,
+    recentActivity: String,
+    onChat: () -> Unit,
+    onVoice: () -> Unit,
+    onSkills: () -> Unit,
+    onModels: () -> Unit,
+    onSettings: () -> Unit
+) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("HAIRA AI 2.0", color = FeatureText, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                Text("YOUR PERSONAL AI ASSISTANT", color = FeatureMuted, fontSize = 9.sp, letterSpacing = 1.4.sp)
+            }
+            IconButton(onClick = onSettings) {
+                Icon(Icons.Default.Settings, "Settings", tint = FeatureBlue, modifier = Modifier.size(28.dp))
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            StatusPanel("STATUS", if (online) "Online" else "Offline", online, Modifier.weight(1f))
+            StatusPanel("MEMORY", "$memoryCount saved", true, Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatusPanel("MODEL", model, online, Modifier.weight(1f))
+            StatusPanel("SKILLS", "6 tools", true, Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(10.dp))
+        Box(Modifier.fillMaxWidth().height(345.dp).clip(RoundedCornerShape(26.dp))
+            .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF0D2440), Color(0xFF080F1C), FeatureBg)))
+            .border(1.dp, FeatureBlue.copy(alpha = .55f), RoundedCornerShape(26.dp))) {
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                val center = androidx.compose.ui.geometry.Offset(size.width / 2, size.height * .43f)
+                val radius = size.minDimension * .40f
+                drawCircle(FeatureBlue.copy(alpha = .10f), radius, center)
+                drawCircle(FeatureBlue.copy(alpha = .65f), radius * .84f, center, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+                drawCircle(FeatureRed.copy(alpha = .60f), radius * .94f, center, style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
+                drawArc(FeatureBlue, 25f, 105f, false, androidx.compose.ui.geometry.Offset(center.x-radius*.84f,center.y-radius*.84f), androidx.compose.ui.geometry.Size(radius*1.68f,radius*1.68f), style=androidx.compose.ui.graphics.drawscope.Stroke(3.dp.toPx()))
+                drawArc(FeatureRed, 205f, 50f, false, androidx.compose.ui.geometry.Offset(center.x-radius*.94f,center.y-radius*.94f), androidx.compose.ui.geometry.Size(radius*1.88f,radius*1.88f), style=androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+            }
+            Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.size(width = 194.dp, height = 220.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(width = 182.dp, height = 200.dp).clip(RoundedCornerShape(90.dp))
+                        .background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(Color(0xFF235F8D), Color(0xFF0C1D33), Color.Transparent)))
+                        .border(1.dp, FeatureBlue.copy(alpha = .55f), RoundedCornerShape(90.dp)))
+                    Box(Modifier.offset(y = (-14).dp).size(width = 122.dp, height = 148.dp).clip(RoundedCornerShape(topStart = 62.dp, topEnd = 62.dp, bottomStart = 42.dp, bottomEnd = 42.dp))
+                        .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF173D60), Color(0xFF091626))))
+                        .border(2.dp, FeatureBlue.copy(alpha = .85f), RoundedCornerShape(topStart = 62.dp, topEnd = 62.dp, bottomStart = 42.dp, bottomEnd = 42.dp))) {
+                        Column(Modifier.fillMaxSize().padding(top = 57.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                                Box(Modifier.size(width = 18.dp, height = 6.dp).clip(RoundedCornerShape(50)).background(FeatureBlue))
+                                Box(Modifier.size(width = 18.dp, height = 6.dp).clip(RoundedCornerShape(50)).background(FeatureBlue))
+                            }
+                            Spacer(Modifier.height(22.dp))
+                            Text("H", color = FeatureBlue, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+                    Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp).size(width = 174.dp, height = 58.dp)
+                        .clip(RoundedCornerShape(topStart = 70.dp, topEnd = 70.dp, bottomStart = 20.dp, bottomEnd = 20.dp))
+                        .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF1B456B), Color(0xFF091A2B))))
+                        .border(1.dp, FeatureBlue.copy(alpha = .7f), RoundedCornerShape(topStart = 70.dp, topEnd = 70.dp, bottomStart = 20.dp, bottomEnd = 20.dp)))
+                }
+                Text("HAIRA", color = FeatureText, fontSize = 20.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
+                Text("HOLOGRAPHIC CORE • ACTIVE", color = FeatureBlue, fontSize = 9.sp, letterSpacing = 1.sp)
+            }
+            Text("H-CORE 2.0", color = FeatureBlue, fontSize = 9.sp, modifier = Modifier.align(Alignment.TopStart).padding(13.dp))
+            Text("SECURE • READY", color = FeatureRed, fontSize = 9.sp, modifier = Modifier.align(Alignment.BottomEnd).padding(13.dp))
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onChat, modifier = Modifier.weight(1f).height(54.dp), colors = ButtonDefaults.buttonColors(containerColor = FeatureRed)) {
+                Icon(Icons.Default.Chat, null); Spacer(Modifier.width(6.dp)); Text("Quick Chat")
+            }
+            Button(onClick = onVoice, modifier = Modifier.size(58.dp), shape = RoundedCornerShape(50), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF103B60))) {
+                Icon(Icons.Default.Mic, "Voice assistant", tint = FeatureBlue, modifier = Modifier.size(25.dp))
+            }
+            OutlinedButton(onClick = onSkills, modifier = Modifier.weight(1f).height(54.dp)) {
+                Icon(Icons.Default.AutoAwesome, null, tint = FeatureBlue); Spacer(Modifier.width(6.dp)); Text("Skills", color = FeatureText)
+            }
+        }
+        Card(Modifier.fillMaxWidth().padding(top = 10.dp), colors = CardDefaults.cardColors(containerColor = FeaturePanel),
+            border = androidx.compose.foundation.BorderStroke(1.dp, FeatureBlue.copy(alpha = .2f))) {
+            Column(Modifier.padding(13.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("RECENT ACTIVITY", color = FeatureText, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text("LOCAL", color = FeatureMuted, fontSize = 9.sp)
+                }
+                Text(recentActivity.ifBlank { "No recent conversation yet." }, color = FeatureMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 7.dp))
+            }
+        }
+        OutlinedButton(onClick = onModels, modifier = Modifier.fillMaxWidth().padding(top = 9.dp)) {
+            Icon(Icons.Default.Memory, null, tint = FeatureBlue); Text("  MODEL MANAGER • $engine", color = FeatureText, fontSize = 10.sp)
+        }
+    }
+}
+
+@Composable
+private fun StatusPanel(title: String, value: String, active: Boolean, modifier: Modifier) {
+    Card(modifier, colors = CardDefaults.cardColors(containerColor = FeaturePanel),
+        border = androidx.compose.foundation.BorderStroke(1.dp, (if (active) FeatureBlue else FeatureRed).copy(alpha = .35f))) {
+        Column(Modifier.fillMaxWidth().padding(10.dp)) {
+            Text(title, color = FeatureMuted, fontSize = 9.sp, letterSpacing = 1.sp)
+            Text(value, color = if (active) FeatureText else FeatureRed, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        }
+    }
+}
